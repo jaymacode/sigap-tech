@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   calculatePriority,
+  calculateTicketPriority,
   isValidOverrideReason,
   priorityRank,
   PRIORITY_LABELS,
@@ -22,6 +23,17 @@ describe('calculatePriority (ITSM.md §3)', () => {
 
   it.each(cases)('impact %s × urgency %s → %s', (impact, urgency, expected) => {
     expect(calculatePriority(impact, urgency)).toBe(expected);
+  });
+});
+
+describe('calculateTicketPriority', () => {
+  it('incident memakai matriks apa adanya', () => {
+    expect(calculateTicketPriority('incident', 'high', 'high')).toBe('P1');
+  });
+  it('service request dibatasi ke P3/P4', () => {
+    expect(calculateTicketPriority('service_request', 'high', 'high')).toBe('P3');
+    expect(calculateTicketPriority('service_request', 'medium', 'high')).toBe('P3');
+    expect(calculateTicketPriority('service_request', 'low', 'low')).toBe('P4');
   });
 });
 

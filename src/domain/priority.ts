@@ -1,4 +1,4 @@
-import type { Impact, Priority, Urgency } from './types';
+import type { Impact, Priority, TicketType, Urgency } from './types';
 
 /**
  * Priority matrix Impact × Urgency (ITSM.md §3).
@@ -18,6 +18,19 @@ const MATRIX: Readonly<Record<Impact, Readonly<Record<Urgency, Priority>>>> = {
  */
 export function calculatePriority(impact: Impact, urgency: Urgency): Priority {
   return MATRIX[impact][urgency];
+}
+
+/**
+ * Prioritas efektif per tipe tiket. Service Request memakai policy terpisah yang hanya
+ * mengenal P3/P4 (ITSM.md §4.1), sehingga hasil matriks P1/P2 dibatasi menjadi P3 (ADR-008).
+ * @param type - tipe tiket
+ * @param impact - luas dampak
+ * @param urgency - tingkat urgensi
+ */
+export function calculateTicketPriority(type: TicketType, impact: Impact, urgency: Urgency): Priority {
+  const priority = calculatePriority(impact, urgency);
+  if (type === 'service_request' && (priority === 'P1' || priority === 'P2')) return 'P3';
+  return priority;
 }
 
 export const PRIORITY_LABELS: Readonly<Record<Priority, string>> = {

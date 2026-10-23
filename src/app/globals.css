@@ -1,0 +1,209 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+/*
+ * Sigap design tokens (DESIGN.md §2).
+ * Nama variabel mengikuti dokumen; Tailwind memetakan ke utilitas: bg-bg, bg-surface, text-fg,
+ * text-muted, border-border, text-accent, text-p1…p4, text-sla-ok/risk/breach.
+ * Token turunan (surface-2, accent-soft, note) ditambahkan untuk hover, latar lembut,
+ * dan catatan internal (DESIGN.md §4.6).
+ */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --bg: #fafaf9;
+  --surface: #ffffff;
+  --surface-2: #f5f5f4;
+  --border: #e7e5e4;
+  --border-strong: #d6d3d1;
+  --text: #1c1917;
+  --muted: #78716c;
+  --accent: #0f766e;
+  --accent-hover: #115e59;
+  --accent-fg: #ffffff;
+  --accent-soft: #ccfbf1;
+  --p1: #dc2626;
+  --p2: #ea580c;
+  --p3: #ca8a04;
+  --p4: #64748b;
+  --sla-ok: #16a34a;
+  --sla-risk: #d97706;
+  --sla-breach: #dc2626;
+  --note: #fefce8;
+  --note-border: #fde68a;
+  --danger: #dc2626;
+  --ring: #0f766e;
+  --shadow-pop: 0 10px 30px -10px rgb(28 25 23 / 0.18), 0 2px 6px -2px rgb(28 25 23 / 0.08);
+  --radius: 6px;
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #0c0d0f;
+  --surface: #15171a;
+  --surface-2: #1c1f23;
+  --border: #26292e;
+  --border-strong: #353940;
+  --text: #ededed;
+  --muted: #9ca3af;
+  --accent: #2dd4bf;
+  --accent-hover: #5eead4;
+  --accent-fg: #042f2e;
+  --accent-soft: #134e4a;
+  --p1: #f87171;
+  --p2: #fb923c;
+  --p3: #facc15;
+  --p4: #94a3b8;
+  --sla-ok: #4ade80;
+  --sla-risk: #fbbf24;
+  --sla-breach: #f87171;
+  --note: #2a2410;
+  --note-border: #4d3f12;
+  --danger: #f87171;
+  --ring: #2dd4bf;
+  --shadow-pop: 0 10px 30px -10px rgb(0 0 0 / 0.6), 0 2px 6px -2px rgb(0 0 0 / 0.4);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-p1: var(--p1);
+  --color-p2: var(--p2);
+  --color-p3: var(--p3);
+  --color-p4: var(--p4);
+  --color-sla-ok: var(--sla-ok);
+  --color-sla-risk: var(--sla-risk);
+  --color-sla-breach: var(--sla-breach);
+  --color-note: var(--note);
+  --color-note-border: var(--note-border);
+  --color-danger: var(--danger);
+  --color-ring: var(--ring);
+
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, monospace;
+
+  /* Skala tipografi DESIGN.md §2: 12/13/14/16/20/24/30 */
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 13px;
+  --text-sm--line-height: 18px;
+  --text-base: 14px;
+  --text-base--line-height: 20px;
+  --text-md: 16px;
+  --text-md--line-height: 24px;
+  --text-lg: 20px;
+  --text-lg--line-height: 28px;
+  --text-xl: 24px;
+  --text-xl--line-height: 32px;
+  --text-2xl: 30px;
+  --text-2xl--line-height: 38px;
+
+  --radius-sm: 4px;
+  --radius-md: var(--radius);
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  --shadow-pop: var(--shadow-pop);
+
+  --animate-fade-in: fade-in 160ms ease-out;
+  --animate-slide-up: slide-up 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-pulse-soft: pulse-soft 2s ease-in-out infinite;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes pulse-soft {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.55;
+    }
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    @apply bg-bg text-fg font-sans text-base;
+  }
+
+  /* Fokus terlihat: ring accent 2px (DESIGN.md §7). */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* Pola garis untuk SLA paused (DESIGN.md §6 SlaProgress). */
+  .sla-paused-stripes {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--muted) 45%, transparent) 0 6px,
+      transparent 6px 12px
+    );
+  }
+
+  .skeleton {
+    @apply bg-surface-2 animate-pulse-soft rounded-md;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
