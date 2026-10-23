@@ -49,7 +49,11 @@ export const DropdownMenuCheckboxItem = React.forwardRef<
   React.ComponentRef<typeof DropdownMenuPrimitive.CheckboxItem>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.CheckboxItem>
 >(({ className, children, ...props }, ref) => (
-  <DropdownMenuPrimitive.CheckboxItem ref={ref} className={cn(itemBase, 'pl-7', className)} {...props}>
+  <DropdownMenuPrimitive.CheckboxItem
+    ref={ref}
+    className={cn(itemBase, 'pl-7', className)}
+    {...props}
+  >
     <span className="absolute left-2 flex size-4 items-center justify-center">
       <DropdownMenuPrimitive.ItemIndicator>
         <Check className="!text-accent" />
@@ -61,11 +65,11 @@ export const DropdownMenuCheckboxItem = React.forwardRef<
 DropdownMenuCheckboxItem.displayName = 'DropdownMenuCheckboxItem';
 
 export function DropdownMenuLabel({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('px-2 py-1.5 text-xs font-medium text-muted', className)} {...props} />;
+  return <div className={cn('text-muted px-2 py-1.5 text-xs font-medium', className)} {...props} />;
 }
 
 export function DropdownMenuSeparator({ className }: { className?: string }) {
-  return <DropdownMenuPrimitive.Separator className={cn('-mx-1 my-1 h-px bg-border', className)} />;
+  return <DropdownMenuPrimitive.Separator className={cn('bg-border -mx-1 my-1 h-px', className)} />;
 }
 
 // ---------------------------------------------------------------- Popover
@@ -109,7 +113,7 @@ export function Tooltip({ content, children, side = 'top' }: TooltipProps) {
         <TooltipPrimitive.Content
           side={side}
           sideOffset={6}
-          className="z-50 max-w-xs rounded-md bg-fg px-2 py-1 text-xs text-bg shadow-pop data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0"
+          className="bg-fg text-bg shadow-pop data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 z-50 max-w-xs rounded-md px-2 py-1 text-xs"
         >
           {content}
         </TooltipPrimitive.Content>

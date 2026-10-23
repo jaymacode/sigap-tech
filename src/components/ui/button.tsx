@@ -9,7 +9,8 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         primary: 'bg-accent text-accent-fg shadow-sm hover:bg-accent-hover',
-        secondary: 'border border-border bg-surface text-fg shadow-xs hover:bg-surface-2 hover:border-border-strong',
+        secondary:
+          'border border-border bg-surface text-fg shadow-xs hover:bg-surface-2 hover:border-border-strong',
         ghost: 'text-fg hover:bg-surface-2',
         danger: 'bg-danger text-white shadow-sm hover:opacity-90',
         link: 'text-accent underline-offset-4 hover:underline',
@@ -27,8 +28,7 @@ export const buttonVariants = cva(
 );
 
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
   /** Render sebagai child (mis. `<Link>`) sambil tetap memakai style tombol. */
   asChild?: boolean;
 }

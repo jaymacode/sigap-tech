@@ -45,7 +45,13 @@ const ROWS: Row[] = [
   // lead
   ['lead kerjakan tiket tim yang dipimpin', leadInfra, 'ticket.work', otherTicketInfra, true],
   ['lead tidak kerjakan tiket tim lain', leadInfra, 'ticket.work', ownTicketL1, false],
-  ['lead override prioritas tim sendiri', leadInfra, 'ticket.override_priority', otherTicketInfra, true],
+  [
+    'lead override prioritas tim sendiri',
+    leadInfra,
+    'ticket.override_priority',
+    otherTicketInfra,
+    true,
+  ],
   ['lead tidak override di tim lain', leadInfra, 'ticket.override_priority', ownTicketL1, false],
   ['lead reassign lintas tim', leadInfra, 'ticket.reassign_team', ownTicketL1, true],
   ['lead lihat performa agent', leadInfra, 'dashboard.view_agents', undefined, true],

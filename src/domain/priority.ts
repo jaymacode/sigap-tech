@@ -27,7 +27,11 @@ export function calculatePriority(impact: Impact, urgency: Urgency): Priority {
  * @param impact - luas dampak
  * @param urgency - tingkat urgensi
  */
-export function calculateTicketPriority(type: TicketType, impact: Impact, urgency: Urgency): Priority {
+export function calculateTicketPriority(
+  type: TicketType,
+  impact: Impact,
+  urgency: Urgency,
+): Priority {
   const priority = calculatePriority(impact, urgency);
   if (type === 'service_request' && (priority === 'P1' || priority === 'P2')) return 'P3';
   return priority;

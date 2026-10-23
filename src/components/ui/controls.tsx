@@ -16,13 +16,17 @@ export const Checkbox = React.forwardRef<
   <CheckboxPrimitive.Root
     ref={ref}
     className={cn(
-      'peer flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-[4px] border border-border-strong bg-surface transition-colors data-[state=checked]:border-accent data-[state=checked]:bg-accent data-[state=checked]:text-accent-fg data-[state=indeterminate]:border-accent data-[state=indeterminate]:bg-accent data-[state=indeterminate]:text-accent-fg',
+      'peer border-border-strong bg-surface data-[state=checked]:border-accent data-[state=checked]:bg-accent data-[state=checked]:text-accent-fg data-[state=indeterminate]:border-accent data-[state=indeterminate]:bg-accent data-[state=indeterminate]:text-accent-fg flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-[4px] border transition-colors',
       className,
     )}
     {...props}
   >
     <CheckboxPrimitive.Indicator>
-      {props.checked === 'indeterminate' ? <Minus className="size-3" /> : <Check className="size-3" strokeWidth={3} />}
+      {props.checked === 'indeterminate' ? (
+        <Minus className="size-3" />
+      ) : (
+        <Check className="size-3" strokeWidth={3} />
+      )}
     </CheckboxPrimitive.Indicator>
   </CheckboxPrimitive.Root>
 ));
@@ -35,7 +39,7 @@ export const Switch = React.forwardRef<
   <SwitchPrimitive.Root
     ref={ref}
     className={cn(
-      'inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border border-transparent bg-border-strong transition-colors data-[state=checked]:bg-accent',
+      'bg-border-strong data-[state=checked]:bg-accent inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border border-transparent transition-colors',
       className,
     )}
     {...props}
@@ -53,7 +57,10 @@ export const TabsList = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.List
     ref={ref}
-    className={cn('inline-flex items-center gap-1 rounded-lg border border-border bg-surface-2 p-0.5', className)}
+    className={cn(
+      'border-border bg-surface-2 inline-flex items-center gap-1 rounded-lg border p-0.5',
+      className,
+    )}
     {...props}
   />
 ));
@@ -66,7 +73,7 @@ export const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      'inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-sm font-medium text-muted transition-colors hover:text-fg data-[state=active]:bg-surface data-[state=active]:text-fg data-[state=active]:shadow-sm',
+      'text-muted hover:text-fg data-[state=active]:bg-surface data-[state=active]:text-fg inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-sm font-medium transition-colors data-[state=active]:shadow-sm',
       className,
     )}
     {...props}
@@ -96,10 +103,22 @@ function toneFor(name: string): string {
  * @param props.name - nama lengkap
  * @param props.size - ukuran px
  */
-export function Avatar({ name, size = 24, className }: { name: string; size?: number; className?: string }) {
+export function Avatar({
+  name,
+  size = 24,
+  className,
+}: {
+  name: string;
+  size?: number;
+  className?: string;
+}) {
   return (
     <AvatarPrimitive.Root
-      className={cn('inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold', toneFor(name), className)}
+      className={cn(
+        'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold',
+        toneFor(name),
+        className,
+      )}
       style={{ width: size, height: size, fontSize: Math.max(9, Math.round(size * 0.4)) }}
       title={name}
     >

@@ -109,7 +109,9 @@ const RULES: readonly Rule[] = [
         ? null
         : domainError('assignee_required', 'Assignee wajib diisi'),
     apply: (t, p) => ({ assigneeId: p.assigneeId ?? t.assigneeId }),
-    extraEvents: (t, p) => [{ type: 'assigned', data: { assigneeId: p.assigneeId ?? t.assigneeId } }],
+    extraEvents: (t, p) => [
+      { type: 'assigned', data: { assigneeId: p.assigneeId ?? t.assigneeId } },
+    ],
   },
   {
     from: ['assigned'],
@@ -236,14 +238,19 @@ export function transition<T extends WorkflowTicket>(
     data: {
       from: ticket.status,
       to,
-      ...(payload.pendingReason && to === 'pending' ? { pendingReason: payload.pendingReason } : {}),
+      ...(payload.pendingReason && to === 'pending'
+        ? { pendingReason: payload.pendingReason }
+        : {}),
       ...(to === 'resolved'
         ? { resolutionCode: payload.resolutionCode, resolutionNotes: next.resolutionNotes }
         : {}),
       ...(to === 'cancelled' ? { reason: (payload.reason ?? '').trim() } : {}),
     },
   };
-  return ok({ ticket: next, events: [...(rule.extraEvents?.(ticket, payload) ?? []), statusEvent] });
+  return ok({
+    ticket: next,
+    events: [...(rule.extraEvents?.(ticket, payload) ?? []), statusEvent],
+  });
 }
 
 /**

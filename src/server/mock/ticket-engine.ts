@@ -83,7 +83,14 @@ function appendEvent(
   data: Record<string, unknown>,
   at: Date,
 ): void {
-  listFor(store.events, ticketId).push({ id: nextId(store, 'evt'), ticketId, actorId, type, data, createdAt: at });
+  listFor(store.events, ticketId).push({
+    id: nextId(store, 'evt'),
+    ticketId,
+    actorId,
+    type,
+    data,
+    createdAt: at,
+  });
 }
 
 function notify(
@@ -111,7 +118,10 @@ function teamLeadId(store: Store, teamId: string | null): string | null {
   return teamId ? (store.teams.get(teamId)?.leadId ?? null) : null;
 }
 
-function slaPair(store: Store, ticketId: string): { response: SlaInstanceRecord; resolution: SlaInstanceRecord } {
+function slaPair(
+  store: Store,
+  ticketId: string,
+): { response: SlaInstanceRecord; resolution: SlaInstanceRecord } {
   const pair = store.sla.get(ticketId);
   if (!pair) throw new EngineError('sla_missing', 'SLA instance tidak ditemukan');
   return pair;
@@ -163,7 +173,11 @@ function recordSlaStop(
       ticket.id,
       null,
       after.status === 'met' ? 'sla_met' : 'sla_breached',
-      { kind: before.kind, elapsedMinutes: Math.round(after.elapsedMinutes), targetMinutes: after.targetMinutes },
+      {
+        kind: before.kind,
+        elapsedMinutes: Math.round(after.elapsedMinutes),
+        targetMinutes: after.targetMinutes,
+      },
       at,
     );
   }
@@ -192,7 +206,9 @@ function pickAssignee(store: Store, teamId: string): string | null {
       load.set(t.assigneeId, (load.get(t.assigneeId) ?? 0) + 1);
     }
   }
-  return [...load.entries()].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))[0]?.[0] ?? null;
+  return (
+    [...load.entries()].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))[0]?.[0] ?? null
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -247,7 +263,14 @@ function addAttachments(
       createdAt: at,
     };
     list.push(record);
-    appendEvent(store, ticket.id, uploaderId, 'attachment_added', { fileName: file.fileName, size: file.size }, at);
+    appendEvent(
+      store,
+      ticket.id,
+      uploaderId,
+      'attachment_added',
+      { fileName: file.fileName, size: file.size },
+      at,
+    );
   }
 }
 
@@ -266,7 +289,8 @@ export function createTicket(
   now: Date,
 ): TicketRecord {
   const item = store.catalog.get(input.catalogItemId);
-  if (!item || !item.isActive) throw new EngineError('catalog_not_found', 'Layanan tidak ditemukan');
+  if (!item || !item.isActive)
+    throw new EngineError('catalog_not_found', 'Layanan tidak ditemukan');
   const category = store.categories.get(item.categoryId);
 
   const impact = input.impact ?? item.defaultImpact;
@@ -318,20 +342,29 @@ export function createTicket(
     resolution: { ...resolution, ...base, id: nextId(store, 'sla') },
   });
 
-  appendEvent(store, ticket.id, requester.id, 'created', {
-    number: ticket.number,
-    priority,
-    impact: ticket.impact,
-    urgency: ticket.urgency,
-    teamId: ticket.teamId,
-  }, now);
-  if (input.attachments?.length) addAttachments(store, ticket, requester.id, input.attachments, null, now);
+  appendEvent(
+    store,
+    ticket.id,
+    requester.id,
+    'created',
+    {
+      number: ticket.number,
+      priority,
+      impact: ticket.impact,
+      urgency: ticket.urgency,
+      teamId: ticket.teamId,
+    },
+    now,
+  );
+  if (input.attachments?.length)
+    addAttachments(store, ticket, requester.id, input.attachments, null, now);
 
   // Auto-assign (ITSM.md §6) bila tim mengaktifkannya.
   const team = ticket.teamId ? store.teams.get(ticket.teamId) : undefined;
   if (team?.autoAssign) {
     const assigneeId = pickAssignee(store, team.id);
-    if (assigneeId) ticket = transitionTicket(store, ticket.id, 'assigned', null, { assigneeId }, now);
+    if (assigneeId)
+      ticket = transitionTicket(store, ticket.id, 'assigned', null, { assigneeId }, now);
   }
   return ticket;
 }
@@ -366,7 +399,8 @@ export function transitionTicket(
 
   let ticket = result.value.ticket;
   const actorId = actor?.id ?? null;
-  for (const event of result.value.events) appendEvent(store, ticket.id, actorId, event.type, event.data, now);
+  for (const event of result.value.events)
+    appendEvent(store, ticket.id, actorId, event.type, event.data, now);
 
   const { response, resolution } = slaPair(store, ticket.id);
   const resCal = businessCalendar(store, resolution.calendarId);
@@ -376,20 +410,52 @@ export function transitionTicket(
     ticket = markFirstResponse(store, ticket, now);
   } else if (to === 'pending') {
     setSla(store, ticket.id, 'resolution', pauseSla(resolution, now, resCal));
-    appendEvent(store, ticket.id, null, 'sla_paused', { kind: 'resolution', reason: ticket.pendingReason }, now);
+    appendEvent(
+      store,
+      ticket.id,
+      null,
+      'sla_paused',
+      { kind: 'resolution', reason: ticket.pendingReason },
+      now,
+    );
   } else if (to === 'in_progress' && from === 'pending') {
     const resumed = resumeSla(resolution, now, resCal);
     setSla(store, ticket.id, 'resolution', resumed);
-    appendEvent(store, ticket.id, null, 'sla_resumed', { kind: 'resolution', dueAt: resumed.dueAt.toISOString() }, now);
+    appendEvent(
+      store,
+      ticket.id,
+      null,
+      'sla_resumed',
+      { kind: 'resolution', dueAt: resumed.dueAt.toISOString() },
+      now,
+    );
   } else if (to === 'resolved') {
     ticket = markFirstResponse(store, ticket, now);
-    recordSlaStop(store, ticket, slaPair(store, ticket.id).resolution, stopSla(resolution, now, resCal), now);
+    recordSlaStop(
+      store,
+      ticket,
+      slaPair(store, ticket.id).resolution,
+      stopSla(resolution, now, resCal),
+      now,
+    );
   } else if (to === 'in_progress' && from === 'resolved') {
     const reopened = reopenSla(resolution, now, resCal);
     setSla(store, ticket.id, 'resolution', reopened);
-    appendEvent(store, ticket.id, null, 'sla_resumed', { kind: 'resolution', dueAt: reopened.dueAt.toISOString() }, now);
+    appendEvent(
+      store,
+      ticket.id,
+      null,
+      'sla_resumed',
+      { kind: 'resolution', dueAt: reopened.dueAt.toISOString() },
+      now,
+    );
   } else if (to === 'cancelled') {
-    setSla(store, ticket.id, 'response', cancelSla(response, now, businessCalendar(store, response.calendarId)));
+    setSla(
+      store,
+      ticket.id,
+      'response',
+      cancelSla(response, now, businessCalendar(store, response.calendarId)),
+    );
     setSla(store, ticket.id, 'resolution', cancelSla(resolution, now, resCal));
   }
 
@@ -397,15 +463,41 @@ export function transitionTicket(
 
   // Notifikasi
   if (to === 'assigned') {
-    notify(store, ticket.assigneeId, 'assigned', ticket, `${ticket.number} ditugaskan kepada Anda`, now, actorId);
+    notify(
+      store,
+      ticket.assigneeId,
+      'assigned',
+      ticket,
+      `${ticket.number} ditugaskan kepada Anda`,
+      now,
+      actorId,
+    );
   }
   if (from === 'resolved' && to === 'in_progress') {
-    notify(store, ticket.assigneeId, 'status_changed', ticket, `${ticket.number} dibuka kembali oleh requester`, now, actorId);
+    notify(
+      store,
+      ticket.assigneeId,
+      'status_changed',
+      ticket,
+      `${ticket.number} dibuka kembali oleh requester`,
+      now,
+      actorId,
+    );
   }
   const requesterLabel =
-    to === 'pending' && ticket.pendingReason !== 'awaiting_user' ? undefined : STATUS_LABEL_FOR_REQUESTER[to];
+    to === 'pending' && ticket.pendingReason !== 'awaiting_user'
+      ? undefined
+      : STATUS_LABEL_FOR_REQUESTER[to];
   if (requesterLabel) {
-    notify(store, ticket.requesterId, 'status_changed', ticket, `Tiket ${ticket.number} ${requesterLabel}`, now, actorId);
+    notify(
+      store,
+      ticket.requesterId,
+      'status_changed',
+      ticket,
+      `Tiket ${ticket.number} ${requesterLabel}`,
+      now,
+      actorId,
+    );
   }
   return ticket;
 }
@@ -431,21 +523,46 @@ export function addComment(
 ): TicketRecord {
   let ticket = requireTicket(store, ticketId);
   if (ticket.status === 'closed' || ticket.status === 'cancelled') {
-    throw new EngineError('final_status', 'Tiket sudah final; buat tiket baru bila masalah berulang');
+    throw new EngineError(
+      'final_status',
+      'Tiket sudah final; buat tiket baru bila masalah berulang',
+    );
   }
   const isStaff = author.role !== 'requester';
   if (!isStaff && visibility === 'internal') {
     throw new EngineError('forbidden', 'Requester tidak dapat menulis catatan internal');
   }
 
-  const comment = { id: nextId(store, 'cmt'), ticketId, authorId: author.id, body: body.trim(), visibility, createdAt: now };
+  const comment = {
+    id: nextId(store, 'cmt'),
+    ticketId,
+    authorId: author.id,
+    body: body.trim(),
+    visibility,
+    createdAt: now,
+  };
   listFor(store.comments, ticketId).push(comment);
-  appendEvent(store, ticketId, author.id, visibility === 'internal' ? 'internal_note' : 'commented', { commentId: comment.id }, now);
+  appendEvent(
+    store,
+    ticketId,
+    author.id,
+    visibility === 'internal' ? 'internal_note' : 'commented',
+    { commentId: comment.id },
+    now,
+  );
   if (attachments.length) addAttachments(store, ticket, author.id, attachments, comment.id, now);
 
   if (isStaff && visibility === 'public') {
     ticket = saveTicket(store, markFirstResponse(store, ticket, now), now);
-    notify(store, ticket.requesterId, 'comment', ticket, `Balasan baru di ${ticket.number}`, now, author.id);
+    notify(
+      store,
+      ticket.requesterId,
+      'comment',
+      ticket,
+      `Balasan baru di ${ticket.number}`,
+      now,
+      author.id,
+    );
   }
   if (!isStaff) {
     notify(
@@ -500,22 +617,59 @@ export function assignTicket(
   }
 
   if (targetTeamId !== ticket.teamId) {
-    appendEvent(store, ticket.id, actor.id, 'escalated_functional', {
-      fromTeamId: ticket.teamId,
-      toTeamId: targetTeamId,
-      note: input.note?.trim() ?? '',
-    }, now);
+    appendEvent(
+      store,
+      ticket.id,
+      actor.id,
+      'escalated_functional',
+      {
+        fromTeamId: ticket.teamId,
+        toTeamId: targetTeamId,
+        note: input.note?.trim() ?? '',
+      },
+      now,
+    );
     ticket = saveTicket(store, { ...ticket, teamId: targetTeamId ?? null }, now);
-    notify(store, teamLeadId(store, targetTeamId ?? null), 'escalated', ticket, `${ticket.number} dieskalasi ke tim Anda`, now, actor.id);
+    notify(
+      store,
+      teamLeadId(store, targetTeamId ?? null),
+      'escalated',
+      ticket,
+      `${ticket.number} dieskalasi ke tim Anda`,
+      now,
+      actor.id,
+    );
   }
 
   if (ticket.status === 'new' && input.assigneeId) {
-    return transitionTicket(store, ticket.id, 'assigned', actor, { assigneeId: input.assigneeId }, now);
+    return transitionTicket(
+      store,
+      ticket.id,
+      'assigned',
+      actor,
+      { assigneeId: input.assigneeId },
+      now,
+    );
   }
   if (input.assigneeId !== ticket.assigneeId) {
-    appendEvent(store, ticket.id, actor.id, 'assigned', { assigneeId: input.assigneeId, previousAssigneeId: ticket.assigneeId }, now);
+    appendEvent(
+      store,
+      ticket.id,
+      actor.id,
+      'assigned',
+      { assigneeId: input.assigneeId, previousAssigneeId: ticket.assigneeId },
+      now,
+    );
     ticket = saveTicket(store, { ...ticket, assigneeId: input.assigneeId }, now);
-    notify(store, input.assigneeId, 'assigned', ticket, `${ticket.number} ditugaskan kepada Anda`, now, actor.id);
+    notify(
+      store,
+      input.assigneeId,
+      'assigned',
+      ticket,
+      `${ticket.number} ditugaskan kepada Anda`,
+      now,
+      actor.id,
+    );
   }
   return ticket;
 }
@@ -524,7 +678,12 @@ export function assignTicket(
 // Priority
 // ---------------------------------------------------------------------------
 
-function applyPriorityChange(store: Store, ticket: TicketRecord, priority: Priority, now: Date): void {
+function applyPriorityChange(
+  store: Store,
+  ticket: TicketRecord,
+  priority: Priority,
+  now: Date,
+): void {
   const pair = slaPair(store, ticket.id);
   const policyId = pair.resolution.policyId;
   const target = targetFor(store, policyId, priority);
@@ -535,12 +694,19 @@ function applyPriorityChange(store: Store, ticket: TicketRecord, priority: Prior
     const result = rebaseline(instance, newTarget, now, cal);
     if (result.instance === instance) continue;
     setSla(store, ticket.id, kind, result.instance);
-    appendEvent(store, ticket.id, null, 'sla_rebaselined', {
-      kind,
-      previousDueAt: result.previousDueAt.toISOString(),
-      newDueAt: result.newDueAt.toISOString(),
-      targetMinutes: newTarget,
-    }, now);
+    appendEvent(
+      store,
+      ticket.id,
+      null,
+      'sla_rebaselined',
+      {
+        kind,
+        previousDueAt: result.previousDueAt.toISOString(),
+        newDueAt: result.newDueAt.toISOString(),
+        targetMinutes: newTarget,
+      },
+      now,
+    );
     if (result.breachedImmediately) {
       appendEvent(store, ticket.id, null, 'sla_breached', { kind, reason: 'rebaseline' }, now);
     }
@@ -560,10 +726,20 @@ export function overridePriority(
   now: Date,
 ): TicketRecord {
   const ticket = requireTicket(store, ticketId);
-  if (!ACTIVE_STATUSES.includes(ticket.status)) throw new EngineError('final_status', 'Prioritas hanya bisa diubah pada tiket aktif');
-  if (!isValidOverrideReason(reason)) throw new EngineError('reason_required', 'Alasan override minimal 10 karakter');
-  if (priority === ticket.priority) throw new EngineError('no_change', 'Prioritas sama dengan sebelumnya');
-  appendEvent(store, ticket.id, actor.id, 'priority_overridden', { from: ticket.priority, to: priority, reason: reason.trim() }, now);
+  if (!ACTIVE_STATUSES.includes(ticket.status))
+    throw new EngineError('final_status', 'Prioritas hanya bisa diubah pada tiket aktif');
+  if (!isValidOverrideReason(reason))
+    throw new EngineError('reason_required', 'Alasan override minimal 10 karakter');
+  if (priority === ticket.priority)
+    throw new EngineError('no_change', 'Prioritas sama dengan sebelumnya');
+  appendEvent(
+    store,
+    ticket.id,
+    actor.id,
+    'priority_overridden',
+    { from: ticket.priority, to: priority, reason: reason.trim() },
+    now,
+  );
   applyPriorityChange(store, ticket, priority, now);
   return saveTicket(store, { ...ticket, priority, priorityOverridden: true }, now);
 }
@@ -581,16 +757,26 @@ export function updateClassification(
   now: Date,
 ): TicketRecord {
   const ticket = requireTicket(store, ticketId);
-  if (!ACTIVE_STATUSES.includes(ticket.status)) throw new EngineError('final_status', 'Tiket tidak aktif');
-  const priority = ticket.priorityOverridden ? ticket.priority : calculateTicketPriority(ticket.type, impact, urgency);
-  appendEvent(store, ticket.id, actor.id, 'priority_changed', {
-    from: ticket.priority,
-    to: priority,
-    impact,
-    urgency,
-    previousImpact: ticket.impact,
-    previousUrgency: ticket.urgency,
-  }, now);
+  if (!ACTIVE_STATUSES.includes(ticket.status))
+    throw new EngineError('final_status', 'Tiket tidak aktif');
+  const priority = ticket.priorityOverridden
+    ? ticket.priority
+    : calculateTicketPriority(ticket.type, impact, urgency);
+  appendEvent(
+    store,
+    ticket.id,
+    actor.id,
+    'priority_changed',
+    {
+      from: ticket.priority,
+      to: priority,
+      impact,
+      urgency,
+      previousImpact: ticket.impact,
+      previousUrgency: ticket.urgency,
+    },
+    now,
+  );
   if (priority !== ticket.priority) applyPriorityChange(store, ticket, priority, now);
   return saveTicket(store, { ...ticket, impact, urgency, priority }, now);
 }
@@ -616,8 +802,15 @@ export function submitCsat(
     throw new EngineError('not_resolved', 'Survei hanya tersedia setelah tiket selesai');
   }
   if (store.csat.has(ticketId)) throw new EngineError('duplicate', 'Survei sudah diisi');
-  if (!Number.isInteger(score) || score < 1 || score > 5) throw new EngineError('invalid_score', 'Skor harus 1–5');
-  store.csat.set(ticketId, { id: nextId(store, 'csat'), ticketId, score, comment: comment.trim(), createdAt: now });
+  if (!Number.isInteger(score) || score < 1 || score > 5)
+    throw new EngineError('invalid_score', 'Skor harus 1–5');
+  store.csat.set(ticketId, {
+    id: nextId(store, 'csat'),
+    ticketId,
+    score,
+    comment: comment.trim(),
+    createdAt: now,
+  });
   appendEvent(store, ticketId, actor.id, 'csat_submitted', { score }, now);
   return saveTicket(store, ticket, now);
 }
@@ -658,25 +851,75 @@ export function runSlaTick(store: Store, now: Date): TickResult {
 
       if (state.percentUsed >= 75 && !instance.warnedAt) {
         setSla(store, ticketId, kind, { ...instance, warnedAt: now });
-        appendEvent(store, ticketId, null, 'sla_warning', { kind, percentUsed: Math.round(state.percentUsed) }, now);
-        notify(store, ticket.assigneeId, 'sla_warning', ticket, `${kindLabel} SLA ${ticket.number} at risk (75%)`, now);
+        appendEvent(
+          store,
+          ticketId,
+          null,
+          'sla_warning',
+          { kind, percentUsed: Math.round(state.percentUsed) },
+          now,
+        );
+        notify(
+          store,
+          ticket.assigneeId,
+          'sla_warning',
+          ticket,
+          `${kindLabel} SLA ${ticket.number} at risk (75%)`,
+          now,
+        );
         if (kind === 'resolution' && p1p2) {
-          notify(store, teamLeadId(store, ticket.teamId), 'sla_warning', ticket, `${ticket.priority} ${ticket.number} mendekati breach`, now);
+          notify(
+            store,
+            teamLeadId(store, ticket.teamId),
+            'sla_warning',
+            ticket,
+            `${ticket.priority} ${ticket.number} mendekati breach`,
+            now,
+          );
         }
         result.warned += 1;
       }
       const latest = slaPair(store, ticketId)[kind];
       if (state.breached && !latest.breachedAt) {
-        setSla(store, ticketId, kind, { ...latest, breachedAt: latest.dueAt < now ? latest.dueAt : now });
+        setSla(store, ticketId, kind, {
+          ...latest,
+          breachedAt: latest.dueAt < now ? latest.dueAt : now,
+        });
         appendEvent(store, ticketId, null, 'sla_breached', { kind }, now);
-        notify(store, ticket.assigneeId, 'sla_breached', ticket, `${kindLabel} SLA ${ticket.number} breached`, now);
-        notify(store, teamLeadId(store, ticket.teamId), 'sla_breached', ticket, `${kindLabel} SLA ${ticket.number} breached`, now);
+        notify(
+          store,
+          ticket.assigneeId,
+          'sla_breached',
+          ticket,
+          `${kindLabel} SLA ${ticket.number} breached`,
+          now,
+        );
+        notify(
+          store,
+          teamLeadId(store, ticket.teamId),
+          'sla_breached',
+          ticket,
+          `${kindLabel} SLA ${ticket.number} breached`,
+          now,
+        );
         if (kind === 'resolution') {
           const level = ticket.priority === 'P1' ? 2 : 1;
           appendEvent(store, ticketId, null, 'escalated_hierarchical', { level }, now);
-          saveTicket(store, { ...ticket, escalationLevel: Math.max(ticket.escalationLevel, level) }, now);
+          saveTicket(
+            store,
+            { ...ticket, escalationLevel: Math.max(ticket.escalationLevel, level) },
+            now,
+          );
           if (level === 2) {
-            for (const id of adminIds(store)) notify(store, id, 'escalated', ticket, `P1 ${ticket.number} breached — eskalasi level 2`, now);
+            for (const id of adminIds(store))
+              notify(
+                store,
+                id,
+                'escalated',
+                ticket,
+                `P1 ${ticket.number} breached — eskalasi level 2`,
+                now,
+              );
           }
         }
         result.breached += 1;
@@ -687,7 +930,9 @@ export function runSlaTick(store: Store, now: Date): TickResult {
   const businessCal = businessCalendar(store, CAL_BUSINESS);
   for (const ticket of [...store.tickets.values()]) {
     if (ticket.status !== 'resolved' || !ticket.resolvedAt) continue;
-    if (businessMinutesBetween(ticket.resolvedAt, now, businessCal) >= AUTO_CLOSE_BUSINESS_MINUTES) {
+    if (
+      businessMinutesBetween(ticket.resolvedAt, now, businessCal) >= AUTO_CLOSE_BUSINESS_MINUTES
+    ) {
       transitionTicket(store, ticket.id, 'closed', null, {}, now);
       result.autoClosed += 1;
     }

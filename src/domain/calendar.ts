@@ -186,7 +186,8 @@ function workIntervalsFor(calendar: BusinessCalendar, date: LocalDate): Array<[n
 }
 
 function assertFiniteMinutes(minutes: number): void {
-  if (!Number.isFinite(minutes)) throw new RangeError(`Menit harus angka hingga, diterima ${minutes}`);
+  if (!Number.isFinite(minutes))
+    throw new RangeError(`Menit harus angka hingga, diterima ${minutes}`);
 }
 
 // ---------------------------------------------------------------------------

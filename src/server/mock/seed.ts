@@ -1,4 +1,8 @@
-import { addBusinessMinutes, businessMinutesBetween, type BusinessCalendar } from '@/domain/calendar';
+import {
+  addBusinessMinutes,
+  businessMinutesBetween,
+  type BusinessCalendar,
+} from '@/domain/calendar';
 import { computeSlaState } from '@/domain/sla';
 import type { Impact, PendingReason, Priority, ResolutionCode, Urgency } from '@/domain/types';
 import { createRng, type Rng } from './random';
@@ -49,9 +53,20 @@ const REQUEST_PRIORITY: ReadonlyArray<readonly [Priority, number]> = [
 
 const PAIRS: Readonly<Record<Priority, ReadonlyArray<readonly [Impact, Urgency]>>> = {
   P1: [['high', 'high']],
-  P2: [['high', 'medium'], ['medium', 'high']],
-  P3: [['high', 'low'], ['medium', 'medium'], ['low', 'high']],
-  P4: [['medium', 'low'], ['low', 'medium'], ['low', 'low']],
+  P2: [
+    ['high', 'medium'],
+    ['medium', 'high'],
+  ],
+  P3: [
+    ['high', 'low'],
+    ['medium', 'medium'],
+    ['low', 'high'],
+  ],
+  P4: [
+    ['medium', 'low'],
+    ['low', 'medium'],
+    ['low', 'low'],
+  ],
 };
 
 const ITEM_WEIGHTS: ReadonlyArray<readonly [string, number]> = [
@@ -73,21 +88,96 @@ const ITEM_WEIGHTS: ReadonlyArray<readonly [string, number]> = [
 ];
 
 const TITLES: Readonly<Record<string, readonly string[]>> = {
-  'cat-item-laptop-dead': ['Laptop mati total tidak bisa dinyalakan', 'Laptop tidak mau booting setelah update', 'Layar laptop hitam saat dinyalakan', 'Laptop mati sendiri saat dipakai'],
-  'cat-item-laptop-slow': ['Laptop sangat lambat sejak kemarin', 'Excel sering not responding', 'Laptop hang saat video call', 'Booting laptop lebih dari 10 menit'],
-  'cat-item-printer': ['Printer lantai 2 tidak bisa mencetak', 'Kertas macet di printer HR', 'Hasil cetak bergaris', 'Printer tidak muncul di daftar perangkat'],
-  'cat-item-vpn': ['VPN gagal connect dari rumah', 'VPN putus-putus setiap 10 menit', 'Error "credential failed" saat login VPN', 'Tidak bisa akses server lewat VPN'],
-  'cat-item-wifi': ['WiFi lantai 3 tidak ada sinyal', 'Internet kantor sangat lambat', 'Tidak bisa konek WiFi tamu untuk meeting', 'LAN di ruang rapat mati'],
-  'cat-item-email': ['Email tertahan di outbox', 'Mailbox penuh tidak bisa terima email', 'Outlook minta password terus', 'Email eksternal tidak masuk'],
-  'cat-item-erp': ['Error saat posting jurnal di ERP', 'Laporan stok tidak muncul', 'Modul procurement tidak bisa dibuka', 'ERP timeout saat approve PO'],
-  'cat-item-monitor': ['Monitor kedua tidak terdeteksi', 'Mouse wireless tidak berfungsi', 'Docking station tidak mengisi daya', 'Keyboard beberapa tombol mati'],
-  'cat-item-password': ['Lupa password email', 'Akun Windows terkunci', 'Reset password ERP', 'Password VPN kedaluwarsa'],
-  'cat-item-new-account': ['Akun untuk karyawan baru tim Sales', 'Onboarding karyawan baru Keuangan', 'Pembuatan akun magang HR', 'Akun email karyawan baru Marketing'],
-  'cat-item-app-access': ['Akses shared folder Finance', 'Akses modul laporan ERP', 'Minta akses grup email proyek', 'Akses aplikasi HRIS untuk atasan'],
-  'cat-item-software': ['Install Adobe Acrobat Pro', 'Install aplikasi Zoom', 'Butuh Visio untuk diagram proses', 'Install driver printer baru'],
-  'cat-item-new-device': ['Permintaan monitor tambahan', 'Laptop pengganti karena rusak berat', 'Headset untuk customer care', 'Docking station untuk meja baru'],
-  'cat-item-vpn-access': ['Aktivasi VPN untuk WFH', 'Akses VPN untuk perjalanan dinas', 'VPN untuk vendor proyek', 'Perpanjang akses VPN'],
-  'cat-item-other': ['Pertanyaan tentang kebijakan perangkat', 'Bantuan setting tanda tangan email', 'Konsultasi backup data', 'Pertanyaan lisensi software'],
+  'cat-item-laptop-dead': [
+    'Laptop mati total tidak bisa dinyalakan',
+    'Laptop tidak mau booting setelah update',
+    'Layar laptop hitam saat dinyalakan',
+    'Laptop mati sendiri saat dipakai',
+  ],
+  'cat-item-laptop-slow': [
+    'Laptop sangat lambat sejak kemarin',
+    'Excel sering not responding',
+    'Laptop hang saat video call',
+    'Booting laptop lebih dari 10 menit',
+  ],
+  'cat-item-printer': [
+    'Printer lantai 2 tidak bisa mencetak',
+    'Kertas macet di printer HR',
+    'Hasil cetak bergaris',
+    'Printer tidak muncul di daftar perangkat',
+  ],
+  'cat-item-vpn': [
+    'VPN gagal connect dari rumah',
+    'VPN putus-putus setiap 10 menit',
+    'Error "credential failed" saat login VPN',
+    'Tidak bisa akses server lewat VPN',
+  ],
+  'cat-item-wifi': [
+    'WiFi lantai 3 tidak ada sinyal',
+    'Internet kantor sangat lambat',
+    'Tidak bisa konek WiFi tamu untuk meeting',
+    'LAN di ruang rapat mati',
+  ],
+  'cat-item-email': [
+    'Email tertahan di outbox',
+    'Mailbox penuh tidak bisa terima email',
+    'Outlook minta password terus',
+    'Email eksternal tidak masuk',
+  ],
+  'cat-item-erp': [
+    'Error saat posting jurnal di ERP',
+    'Laporan stok tidak muncul',
+    'Modul procurement tidak bisa dibuka',
+    'ERP timeout saat approve PO',
+  ],
+  'cat-item-monitor': [
+    'Monitor kedua tidak terdeteksi',
+    'Mouse wireless tidak berfungsi',
+    'Docking station tidak mengisi daya',
+    'Keyboard beberapa tombol mati',
+  ],
+  'cat-item-password': [
+    'Lupa password email',
+    'Akun Windows terkunci',
+    'Reset password ERP',
+    'Password VPN kedaluwarsa',
+  ],
+  'cat-item-new-account': [
+    'Akun untuk karyawan baru tim Sales',
+    'Onboarding karyawan baru Keuangan',
+    'Pembuatan akun magang HR',
+    'Akun email karyawan baru Marketing',
+  ],
+  'cat-item-app-access': [
+    'Akses shared folder Finance',
+    'Akses modul laporan ERP',
+    'Minta akses grup email proyek',
+    'Akses aplikasi HRIS untuk atasan',
+  ],
+  'cat-item-software': [
+    'Install Adobe Acrobat Pro',
+    'Install aplikasi Zoom',
+    'Butuh Visio untuk diagram proses',
+    'Install driver printer baru',
+  ],
+  'cat-item-new-device': [
+    'Permintaan monitor tambahan',
+    'Laptop pengganti karena rusak berat',
+    'Headset untuk customer care',
+    'Docking station untuk meja baru',
+  ],
+  'cat-item-vpn-access': [
+    'Aktivasi VPN untuk WFH',
+    'Akses VPN untuk perjalanan dinas',
+    'VPN untuk vendor proyek',
+    'Perpanjang akses VPN',
+  ],
+  'cat-item-other': [
+    'Pertanyaan tentang kebijakan perangkat',
+    'Bantuan setting tanda tangan email',
+    'Konsultasi backup data',
+    'Pertanyaan lisensi software',
+  ],
 };
 
 const FIRST_RESPONSES = [
@@ -115,15 +205,37 @@ const INTERNAL_NOTES = [
   'Perlu eskalasi ke tim Infrastructure jika berulang.',
 ];
 const RESOLUTION_NOTES: Readonly<Record<ResolutionCode, readonly string[]>> = {
-  fixed: ['Driver diperbarui dan perangkat berfungsi normal.', 'Konfigurasi diperbaiki, sudah dites bersama user.', 'Komponen diganti, perangkat normal kembali.'],
-  workaround: ['Diberikan workaround sementara sambil menunggu perbaikan permanen.', 'Gunakan koneksi alternatif sementara; problem dicatat.'],
-  user_error: ['Panduan penggunaan sudah dijelaskan ke user.', 'Pengaturan aplikasi dikembalikan ke default.'],
+  fixed: [
+    'Driver diperbarui dan perangkat berfungsi normal.',
+    'Konfigurasi diperbaiki, sudah dites bersama user.',
+    'Komponen diganti, perangkat normal kembali.',
+  ],
+  workaround: [
+    'Diberikan workaround sementara sambil menunggu perbaikan permanen.',
+    'Gunakan koneksi alternatif sementara; problem dicatat.',
+  ],
+  user_error: [
+    'Panduan penggunaan sudah dijelaskan ke user.',
+    'Pengaturan aplikasi dikembalikan ke default.',
+  ],
   no_fault_found: ['Tidak ditemukan masalah setelah pengecekan menyeluruh.'],
   duplicate: ['Duplikat dari tiket lain yang sudah ditangani.'],
-  fulfilled: ['Permintaan sudah dipenuhi sesuai form.', 'Akses sudah diberikan dan dikonfirmasi.', 'Instalasi selesai dan lisensi aktif.'],
+  fulfilled: [
+    'Permintaan sudah dipenuhi sesuai form.',
+    'Akses sudah diberikan dan dikonfirmasi.',
+    'Instalasi selesai dan lisensi aktif.',
+  ],
 };
-const REOPEN_REASONS = ['Masalah muncul lagi pagi ini', 'Belum sepenuhnya beres', 'Error yang sama terjadi lagi'];
-const CANCEL_REASONS = ['Duplikat tiket lain', 'Dibatalkan atas permintaan user', 'Salah kategori, dibuat ulang'];
+const REOPEN_REASONS = [
+  'Masalah muncul lagi pagi ini',
+  'Belum sepenuhnya beres',
+  'Error yang sama terjadi lagi',
+];
+const CANCEL_REASONS = [
+  'Duplikat tiket lain',
+  'Dibatalkan atas permintaan user',
+  'Salah kategori, dibuat ulang',
+];
 
 interface SimContext {
   store: Store;
@@ -166,7 +278,20 @@ function jakartaDay(now: Date, daysAgo: number): { start: number; weekday: numbe
 }
 
 const HOUR_WEIGHTS: ReadonlyArray<readonly [number, number]> = [
-  [7, 2], [8, 9], [9, 12], [10, 11], [11, 9], [12, 4], [13, 9], [14, 10], [15, 9], [16, 7], [17, 3], [18, 2], [19, 1], [21, 1],
+  [7, 2],
+  [8, 9],
+  [9, 12],
+  [10, 11],
+  [11, 9],
+  [12, 4],
+  [13, 9],
+  [14, 10],
+  [15, 9],
+  [16, 7],
+  [17, 3],
+  [18, 2],
+  [19, 1],
+  [21, 1],
 ];
 
 function formDataFor(item: CatalogItemRecord, rng: Rng): Record<string, string> {
@@ -181,7 +306,11 @@ function formDataFor(item: CatalogItemRecord, rng: Rng): Record<string, string> 
   return data;
 }
 
-function pickPair(item: CatalogItemRecord, priority: Priority, rng: Rng): readonly [Impact, Urgency] {
+function pickPair(
+  item: CatalogItemRecord,
+  priority: Priority,
+  rng: Rng,
+): readonly [Impact, Urgency] {
   const pairs = PAIRS[priority];
   return pairs.find(([impact]) => impact === item.defaultImpact) ?? rng.pick(pairs);
 }
@@ -189,21 +318,44 @@ function pickPair(item: CatalogItemRecord, priority: Priority, rng: Rng): readon
 function resolutionCodeFor(item: CatalogItemRecord, rng: Rng): ResolutionCode {
   if (item.ticketType === 'service_request') return 'fulfilled';
   return rng.weighted<ResolutionCode>([
-    ['fixed', 70], ['workaround', 12], ['user_error', 8], ['no_fault_found', 6], ['duplicate', 4],
+    ['fixed', 70],
+    ['workaround', 12],
+    ['user_error', 8],
+    ['no_fault_found', 6],
+    ['duplicate', 4],
   ]);
 }
 
-function resolve(ctx: SimContext, id: string, item: CatalogItemRecord, agent: UserRecord, at: Date): void {
+function resolve(
+  ctx: SimContext,
+  id: string,
+  item: CatalogItemRecord,
+  agent: UserRecord,
+  at: Date,
+): void {
   const code = resolutionCodeFor(item, ctx.rng);
-  transitionTicket(ctx.store, id, 'resolved', agent, {
-    resolutionCode: code,
-    resolutionNotes: ctx.rng.pick(RESOLUTION_NOTES[code]),
-  }, at);
+  transitionTicket(
+    ctx.store,
+    id,
+    'resolved',
+    agent,
+    {
+      resolutionCode: code,
+      resolutionNotes: ctx.rng.pick(RESOLUTION_NOTES[code]),
+    },
+    at,
+  );
 }
 
 /** Skor CSAT berdistribusi realistis (rata-rata ≈ 4,2). */
 function csatScore(rng: Rng): number {
-  return rng.weighted<number>([[5, 50], [4, 31], [3, 10], [2, 5], [1, 4]]);
+  return rng.weighted<number>([
+    [5, 50],
+    [4, 31],
+    [3, 10],
+    [2, 5],
+    [1, 4],
+  ]);
 }
 
 const CSAT_COMMENTS: Readonly<Record<number, readonly string[]>> = {
@@ -232,15 +384,22 @@ function simulateTicket(ctx: SimContext, spec: TicketSpec): void {
   const [impact, urgency] = pickPair(item, spec.priority, rng);
   const titles = TITLES[item.id] ?? [item.name];
 
-  const created = createTicket(store, {
-    catalogItemId: item.id,
-    title: rng.pick(titles),
-    description: `${item.description} Mohon dibantu, terima kasih.`,
-    urgency,
-    impact,
-    formData: formDataFor(item, rng),
-    attachments: rng.chance(0.15) ? [{ fileName: 'screenshot.png', mime: 'image/png', size: rng.int(80_000, 900_000) }] : [],
-  }, requester, spec.createdAt);
+  const created = createTicket(
+    store,
+    {
+      catalogItemId: item.id,
+      title: rng.pick(titles),
+      description: `${item.description} Mohon dibantu, terima kasih.`,
+      urgency,
+      impact,
+      formData: formDataFor(item, rng),
+      attachments: rng.chance(0.15)
+        ? [{ fileName: 'screenshot.png', mime: 'image/png', size: rng.int(80_000, 900_000) }]
+        : [],
+    },
+    requester,
+    spec.createdAt,
+  );
   const id = created.id;
   const respCal = businessCalendar(store, store.sla.get(id)!.response.calendarId);
   let t = spec.createdAt;
@@ -248,7 +407,9 @@ function simulateTicket(ctx: SimContext, spec: TicketSpec): void {
   // 1) Assignment manual (tim tanpa auto-assign): agent mengambil dari antrean.
   if (!current(store, id).assigneeId) {
     const team = created.teamId ? store.teams.get(created.teamId) : undefined;
-    const agents = (team?.memberIds ?? []).map((m) => requireUser(store, m)).filter((u) => u.role === 'agent');
+    const agents = (team?.memberIds ?? [])
+      .map((m) => requireUser(store, m))
+      .filter((u) => u.role === 'agent');
     const tA = addBusinessMinutes(t, rng.int(2, 40), respCal);
     if (tA > now || agents.length === 0) return;
     const agent = rng.pick(agents);
@@ -260,7 +421,8 @@ function simulateTicket(ctx: SimContext, spec: TicketSpec): void {
   // 2) Cancel (~3%).
   if (rng.chance(0.03)) {
     const tC = new Date(t.getTime() + rng.int(10, 180) * MIN);
-    if (tC <= now) transitionTicket(store, id, 'cancelled', assignee, { reason: rng.pick(CANCEL_REASONS) }, tC);
+    if (tC <= now)
+      transitionTicket(store, id, 'cancelled', assignee, { reason: rng.pick(CANCEL_REASONS) }, tC);
     return;
   }
 
@@ -292,13 +454,18 @@ function simulateTicket(ctx: SimContext, spec: TicketSpec): void {
     const tP = new Date(t.getTime() + rng.int(10, 90) * MIN);
     if (tP > now) return;
     const reason = rng.weighted<PendingReason>([
-      ['awaiting_user', 60], ['awaiting_vendor', 20], ['scheduled', 10], ['awaiting_change', 10],
+      ['awaiting_user', 60],
+      ['awaiting_vendor', 20],
+      ['scheduled', 10],
+      ['awaiting_change', 10],
     ]);
-    if (reason === 'awaiting_user') addComment(store, id, assignee, rng.pick(ASK_USER), 'public', tP);
+    if (reason === 'awaiting_user')
+      addComment(store, id, assignee, rng.pick(ASK_USER), 'public', tP);
     transitionTicket(store, id, 'pending', assignee, { pendingReason: reason }, tP);
     const tU = addBusinessMinutes(tP, rng.int(30, 600), ctx.businessCal);
     if (tU > now) return;
-    if (reason === 'awaiting_user') addComment(store, id, requester, rng.pick(USER_REPLIES), 'public', tU);
+    if (reason === 'awaiting_user')
+      addComment(store, id, requester, rng.pick(USER_REPLIES), 'public', tU);
     else transitionTicket(store, id, 'in_progress', assignee, {}, tU);
     t = tU;
   }
@@ -370,10 +537,14 @@ function generateHistory(ctx: SimContext): void {
 
     const push = (itemId: string): void => {
       const hour = weekend ? rng.int(8, 20) : rng.weighted(HOUR_WEIGHTS);
-      const createdAt = new Date(start + hour * HOUR + rng.int(0, 59) * MIN + rng.int(0, 59) * 1000);
+      const createdAt = new Date(
+        start + hour * HOUR + rng.int(0, 59) * MIN + rng.int(0, 59) * 1000,
+      );
       if (createdAt >= now) return;
       const item = requireItem(ctx.store, itemId);
-      const priority = rng.weighted(item.ticketType === 'incident' ? INCIDENT_PRIORITY : REQUEST_PRIORITY);
+      const priority = rng.weighted(
+        item.ticketType === 'incident' ? INCIDENT_PRIORITY : REQUEST_PRIORITY,
+      );
       const requesterId = rng.chance(0.04) ? 'usr-user' : rng.pick(activeRequesters).id;
       specs.push({ itemId, createdAt, requesterId, priority });
     };
@@ -394,60 +565,170 @@ function generateScenarios(ctx: SimContext): void {
   const agent = requireUser(store, 'usr-agent');
   const reqs = ctx.requesters.filter((u) => u.isActive && u.id !== 'usr-user');
   const create = (
-    itemId: string, title: string, requester: UserRecord, urgency: Urgency, at: Date, impact?: Impact,
+    itemId: string,
+    title: string,
+    requester: UserRecord,
+    urgency: Urgency,
+    at: Date,
+    impact?: Impact,
   ): TicketRecord => {
     const item = requireItem(store, itemId);
-    return createTicket(store, {
-      catalogItemId: itemId, title, description: `${item.description} Mohon segera dibantu.`, urgency, impact,
-      formData: formDataFor(item, ctx.rng),
-    }, requester, at);
+    return createTicket(
+      store,
+      {
+        catalogItemId: itemId,
+        title,
+        description: `${item.description} Mohon segera dibantu.`,
+        urgency,
+        impact,
+        formData: formDataFor(item, ctx.rng),
+      },
+      requester,
+      at,
+    );
   };
 
   // A. Milik user demo, sedang dikerjakan agent demo.
-  const a = create('cat-item-laptop-dead', 'Laptop tidak menyala setelah update Windows', user, 'high', ago(150));
+  const a = create(
+    'cat-item-laptop-dead',
+    'Laptop tidak menyala setelah update Windows',
+    user,
+    'high',
+    ago(150),
+  );
   assignTicket(store, a.id, { assigneeId: agent.id }, agent, ago(146));
-  addComment(store, a.id, agent, 'Halo, saya cek remote dulu ya. Mohon laptop dicolok charger.', 'public', ago(120));
+  addComment(
+    store,
+    a.id,
+    agent,
+    'Halo, saya cek remote dulu ya. Mohon laptop dicolok charger.',
+    'public',
+    ago(120),
+  );
   transitionTicket(store, a.id, 'in_progress', agent, {}, ago(118));
-  addComment(store, a.id, agent, 'BIOS terdeteksi, kemungkinan SSD. Siapkan unit pinjaman.', 'internal', ago(60));
+  addComment(
+    store,
+    a.id,
+    agent,
+    'BIOS terdeteksi, kemungkinan SSD. Siapkan unit pinjaman.',
+    'internal',
+    ago(60),
+  );
 
   // B. Milik user demo, menunggu jawaban user.
   const b = create('cat-item-vpn', 'VPN putus setiap pagi jam 9', user, 'medium', ago(420));
   const bAssignee = requireUser(store, current(store, b.id).assigneeId ?? 'usr-agent4');
-  if (!current(store, b.id).assigneeId) assignTicket(store, b.id, { assigneeId: bAssignee.id }, bAssignee, ago(410));
+  if (!current(store, b.id).assigneeId)
+    assignTicket(store, b.id, { assigneeId: bAssignee.id }, bAssignee, ago(410));
   transitionTicket(store, b.id, 'in_progress', bAssignee, {}, ago(380));
-  addComment(store, b.id, bAssignee, 'Boleh kirimkan screenshot error saat VPN putus dan versi FortiClient Anda?', 'public', ago(130));
+  addComment(
+    store,
+    b.id,
+    bAssignee,
+    'Boleh kirimkan screenshot error saat VPN putus dan versi FortiClient Anda?',
+    'public',
+    ago(130),
+  );
   transitionTicket(store, b.id, 'pending', bAssignee, { pendingReason: 'awaiting_user' }, ago(129));
 
   // C. Milik user demo, sudah Resolved → bisa konfirmasi / buka lagi / CSAT.
   const c = create('cat-item-password', 'Akun Windows terkunci', user, 'high', ago(700));
   assignTicket(store, c.id, { assigneeId: agent.id }, agent, ago(690));
-  addComment(store, c.id, agent, 'Akun sudah saya unlock, silakan coba login kembali.', 'public', ago(660));
+  addComment(
+    store,
+    c.id,
+    agent,
+    'Akun sudah saya unlock, silakan coba login kembali.',
+    'public',
+    ago(660),
+  );
   transitionTicket(store, c.id, 'in_progress', agent, {}, ago(659));
-  transitionTicket(store, c.id, 'resolved', agent, { resolutionCode: 'fulfilled', resolutionNotes: 'Akun di-unlock dan password direset.' }, ago(240));
+  transitionTicket(
+    store,
+    c.id,
+    'resolved',
+    agent,
+    { resolutionCode: 'fulfilled', resolutionNotes: 'Akun di-unlock dan password direset.' },
+    ago(240),
+  );
 
   // D. Agent demo: resolution P2 at risk.
-  const d = create('cat-item-erp', 'ERP gagal posting jurnal akhir bulan', rqPick(ctx, reqs), 'high', ago(400), 'medium');
+  const d = create(
+    'cat-item-erp',
+    'ERP gagal posting jurnal akhir bulan',
+    rqPick(ctx, reqs),
+    'high',
+    ago(400),
+    'medium',
+  );
   const dAssignee = current(store, d.id).assigneeId;
-  if (dAssignee !== agent.id) assignTicket(store, d.id, { assigneeId: 'usr-agent6' }, requireUser(store, 'usr-lead2'), ago(396));
+  if (dAssignee !== agent.id)
+    assignTicket(
+      store,
+      d.id,
+      { assigneeId: 'usr-agent6' },
+      requireUser(store, 'usr-lead2'),
+      ago(396),
+    );
   transitionTicket(store, d.id, 'in_progress', requireUser(store, 'usr-agent6'), {}, ago(390));
 
-  const d2 = create('cat-item-laptop-slow', 'Laptop direksi hang saat presentasi', rqPick(ctx, reqs), 'high', ago(390), 'medium');
+  const d2 = create(
+    'cat-item-laptop-slow',
+    'Laptop direksi hang saat presentasi',
+    rqPick(ctx, reqs),
+    'high',
+    ago(390),
+    'medium',
+  );
   assignTicket(store, d2.id, { assigneeId: agent.id }, agent, ago(388));
   transitionTicket(store, d2.id, 'in_progress', agent, {}, ago(380));
 
   // E. Agent demo: response breached (belum direspons).
-  const e = create('cat-item-monitor', 'Monitor kedua tidak terdeteksi di docking', rqPick(ctx, reqs), 'high', ago(300));
+  const e = create(
+    'cat-item-monitor',
+    'Monitor kedua tidak terdeteksi di docking',
+    rqPick(ctx, reqs),
+    'high',
+    ago(300),
+  );
   assignTicket(store, e.id, { assigneeId: agent.id }, agent, ago(297));
 
   // F. Antrean Unassigned L1.
-  create('cat-item-laptop-dead', 'Laptop kasir cabang tidak menyala', rqPick(ctx, reqs), 'high', ago(18), 'medium');
-  create('cat-item-password', 'Lupa password email setelah cuti', rqPick(ctx, reqs), 'medium', ago(40));
+  create(
+    'cat-item-laptop-dead',
+    'Laptop kasir cabang tidak menyala',
+    rqPick(ctx, reqs),
+    'high',
+    ago(18),
+    'medium',
+  );
+  create(
+    'cat-item-password',
+    'Lupa password email setelah cuti',
+    rqPick(ctx, reqs),
+    'medium',
+    ago(40),
+  );
   create('cat-item-software', 'Install Power BI Desktop', rqPick(ctx, reqs), 'low', ago(95));
 
   // G. P1 aktif di Infrastructure (kalender 24×7).
-  const g = create('cat-item-wifi', 'Internet kantor pusat mati total', rqPick(ctx, reqs), 'high', new Date(now.getTime() - 100 * MIN), 'high');
+  const g = create(
+    'cat-item-wifi',
+    'Internet kantor pusat mati total',
+    rqPick(ctx, reqs),
+    'high',
+    new Date(now.getTime() - 100 * MIN),
+    'high',
+  );
   const gAssignee = requireUser(store, current(store, g.id).assigneeId ?? 'usr-agent4');
-  addComment(store, g.id, gAssignee, 'Kami sedang investigasi gangguan ISP utama, failover sedang diaktifkan.', 'public', new Date(now.getTime() - 92 * MIN));
+  addComment(
+    store,
+    g.id,
+    gAssignee,
+    'Kami sedang investigasi gangguan ISP utama, failover sedang diaktifkan.',
+    'public',
+    new Date(now.getTime() - 92 * MIN),
+  );
   transitionTicket(store, g.id, 'in_progress', gAssignee, {}, new Date(now.getTime() - 91 * MIN));
 }
 

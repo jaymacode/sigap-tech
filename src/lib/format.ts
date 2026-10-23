@@ -51,7 +51,8 @@ const keyFmt = new Intl.DateTimeFormat('en-CA', {
   day: '2-digit',
 });
 
-const toDate = (value: Date | string): Date => (typeof value === 'string' ? new Date(value) : value);
+const toDate = (value: Date | string): Date =>
+  typeof value === 'string' ? new Date(value) : value;
 
 /** "21 Okt 2026 14.05" — dipakai di tooltip waktu absolut. */
 export function formatDateTime(value: Date | string): string {

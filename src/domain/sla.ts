@@ -188,7 +188,9 @@ function rescheduleFrom(
  */
 export function resume(instance: SlaInstance, now: Date, calendar: BusinessCalendar): SlaInstance {
   if (instance.status !== 'paused') return instance;
-  const pausedFor = instance.pausedAt ? businessMinutesBetween(instance.pausedAt, now, calendar) : 0;
+  const pausedFor = instance.pausedAt
+    ? businessMinutesBetween(instance.pausedAt, now, calendar)
+    : 0;
   return {
     ...instance,
     status: 'running',
@@ -210,7 +212,8 @@ export function stop(instance: SlaInstance, now: Date, calendar: BusinessCalenda
     instance.status === 'paused' && instance.pausedAt
       ? businessMinutesBetween(instance.pausedAt, now, calendar)
       : 0;
-  const breached = instance.breachedAt !== null || percentOf(elapsed, instance.targetMinutes) >= 100;
+  const breached =
+    instance.breachedAt !== null || percentOf(elapsed, instance.targetMinutes) >= 100;
   const breachedAt =
     instance.breachedAt ??
     (breached ? new Date(Math.min(instance.dueAt.getTime(), now.getTime())) : null);

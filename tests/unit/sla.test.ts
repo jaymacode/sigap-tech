@@ -31,9 +31,9 @@ describe('createSlaInstances', () => {
   });
 
   it('menolak target negatif', () => {
-    expect(() => createSlaInstances(created, { responseMinutes: -1, resolutionMinutes: 1 }, cal)).toThrow(
-      RangeError,
-    );
+    expect(() =>
+      createSlaInstances(created, { responseMinutes: -1, resolutionMinutes: 1 }, cal),
+    ).toThrow(RangeError);
   });
 });
 
@@ -63,7 +63,11 @@ describe('computeSlaState thresholds', () => {
   });
 
   it('target 0 dianggap 100% terpakai', () => {
-    const { response: zero } = createSlaInstances(created, { responseMinutes: 0, resolutionMinutes: 0 }, cal);
+    const { response: zero } = createSlaInstances(
+      created,
+      { responseMinutes: 0, resolutionMinutes: 0 },
+      cal,
+    );
     expect(computeSlaState(zero, created, cal).percentUsed).toBe(100);
   });
 });
@@ -216,7 +220,11 @@ describe('cancel', () => {
 describe('kalender 24x7 (P1)', () => {
   it('menghitung waktu biasa termasuk akhir pekan', () => {
     const c24 = create24x7Calendar();
-    const { response } = createSlaInstances(jkt('2026-10-24T22:00'), { responseMinutes: 15, resolutionMinutes: 240 }, c24);
+    const { response } = createSlaInstances(
+      jkt('2026-10-24T22:00'),
+      { responseMinutes: 15, resolutionMinutes: 240 },
+      c24,
+    );
     expect(response.dueAt).toEqual(jkt('2026-10-24T22:15'));
     expect(computeSlaState(response, jkt('2026-10-24T22:12'), c24).atRisk).toBe(true);
   });

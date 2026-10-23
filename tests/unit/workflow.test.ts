@@ -67,7 +67,10 @@ describe('matriks transisi', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.ticket.status).toBe(to);
-      expect(result.value.events.at(-1)).toMatchObject({ type: 'status_changed', data: { from, to } });
+      expect(result.value.events.at(-1)).toMatchObject({
+        type: 'status_changed',
+        data: { from, to },
+      });
     }
   });
 
@@ -95,27 +98,45 @@ describe('syarat wajib', () => {
   });
 
   it('pending butuh pending_reason', () => {
-    expectError(transition(ticket('in_progress'), 'pending', assignee, {}, NOW), 'pending_reason_required');
+    expectError(
+      transition(ticket('in_progress'), 'pending', assignee, {}, NOW),
+      'pending_reason_required',
+    );
   });
 
   it('resolve butuh resolution code & notes', () => {
     expectError(
-      transition(ticket('in_progress'), 'resolved', assignee, { resolutionCode: 'fixed', resolutionNotes: '  ' }, NOW),
+      transition(
+        ticket('in_progress'),
+        'resolved',
+        assignee,
+        { resolutionCode: 'fixed', resolutionNotes: '  ' },
+        NOW,
+      ),
       'resolution_required',
     );
   });
 
   it('cancel butuh alasan', () => {
-    expectError(transition(ticket('assigned'), 'cancelled', assignee, { reason: ' ' }, NOW), 'reason_required');
+    expectError(
+      transition(ticket('assigned'), 'cancelled', assignee, { reason: ' ' }, NOW),
+      'reason_required',
+    );
   });
 
   it('reopen butuh alasan', () => {
-    expectError(transition(ticket('resolved'), 'in_progress', requester, {}, NOW), 'reason_required');
+    expectError(
+      transition(ticket('resolved'), 'in_progress', requester, {}, NOW),
+      'reason_required',
+    );
   });
 
   it('reopen setelah 7 hari ditolak', () => {
     const old = ticket('resolved', { resolvedAt: new Date(NOW.getTime() - 8 * DAY) });
-    expectError(transition(old, 'in_progress', requester, { reason: 'Masih error' }, NOW), 'reopen_window_expired');
+    expectError(
+      transition(old, 'in_progress', requester, { reason: 'Masih error' }, NOW),
+      'reopen_window_expired',
+    );
   });
 });
 
@@ -136,7 +157,9 @@ describe('otorisasi aktor', () => {
 
   it('sistem bisa auto-close dan auto-assign', () => {
     expect(transition(ticket('resolved'), 'closed', SYSTEM_ACTOR, {}, NOW).ok).toBe(true);
-    expect(transition(ticket('new'), 'assigned', SYSTEM_ACTOR, { assigneeId: 'u-agent' }, NOW).ok).toBe(true);
+    expect(
+      transition(ticket('new'), 'assigned', SYSTEM_ACTOR, { assigneeId: 'u-agent' }, NOW).ok,
+    ).toBe(true);
   });
 
   it('requester bisa melanjutkan pending hanya saat awaiting_user', () => {
@@ -146,7 +169,9 @@ describe('otorisasi aktor', () => {
   });
 
   it('requester tidak bisa cancel', () => {
-    expect(transition(ticket('new'), 'cancelled', requester, { reason: 'Tidak jadi' }, NOW).ok).toBe(false);
+    expect(
+      transition(ticket('new'), 'cancelled', requester, { reason: 'Tidak jadi' }, NOW).ok,
+    ).toBe(false);
   });
 });
 
@@ -157,7 +182,13 @@ describe('event yang dihasilkan', () => {
   });
 
   it('reopen menghasilkan reopened, menaikkan reopen_count, dan mengosongkan resolusi', () => {
-    const r = transition(ticket('resolved'), 'in_progress', requester, { reason: 'Masih error' }, NOW);
+    const r = transition(
+      ticket('resolved'),
+      'in_progress',
+      requester,
+      { reason: 'Masih error' },
+      NOW,
+    );
     expect(r.ok).toBe(true);
     if (r.ok) {
       expect(r.value.events.map((e) => e.type)).toEqual(['reopened', 'status_changed']);
@@ -177,7 +208,13 @@ describe('event yang dihasilkan', () => {
   });
 
   it('pending menyimpan alasan; cancel menyimpan alasan', () => {
-    const p = transition(ticket('in_progress'), 'pending', assignee, { pendingReason: 'scheduled' }, NOW);
+    const p = transition(
+      ticket('in_progress'),
+      'pending',
+      assignee,
+      { pendingReason: 'scheduled' },
+      NOW,
+    );
     expect(p.ok && p.value.events[0]?.data).toMatchObject({ pendingReason: 'scheduled' });
     const c = transition(ticket('new'), 'cancelled', lead, { reason: 'Duplikat INC-1' }, NOW);
     expect(c.ok && c.value.events[0]?.data).toMatchObject({ reason: 'Duplikat INC-1' });
@@ -191,11 +228,18 @@ describe('event yang dihasilkan', () => {
 
 describe('allowedTransitions', () => {
   it('assignee pada in_progress: pending, resolved, cancelled', () => {
-    expect(allowedTransitions(ticket('in_progress'), assignee, NOW).sort()).toEqual(['cancelled', 'pending', 'resolved']);
+    expect(allowedTransitions(ticket('in_progress'), assignee, NOW).sort()).toEqual([
+      'cancelled',
+      'pending',
+      'resolved',
+    ]);
   });
 
   it('requester pada resolved: closed & reopen dalam 7 hari', () => {
-    expect(allowedTransitions(ticket('resolved'), requester, NOW).sort()).toEqual(['closed', 'in_progress']);
+    expect(allowedTransitions(ticket('resolved'), requester, NOW).sort()).toEqual([
+      'closed',
+      'in_progress',
+    ]);
   });
 
   it('reopen hilang setelah 7 hari', () => {

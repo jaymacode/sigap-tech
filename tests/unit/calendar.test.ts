@@ -104,7 +104,11 @@ describe('businessMinutesBetween', () => {
 
   it('24x7 = selisih biasa', () => {
     expect(
-      businessMinutesBetween(jkt('2026-10-24T08:00'), jkt('2026-10-24T09:30'), create24x7Calendar()),
+      businessMinutesBetween(
+        jkt('2026-10-24T08:00'),
+        jkt('2026-10-24T09:30'),
+        create24x7Calendar(),
+      ),
     ).toBe(90);
   });
 

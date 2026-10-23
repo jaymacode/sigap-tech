@@ -29,7 +29,12 @@ export const TICKET_STATUSES = [
 export type TicketStatus = (typeof TICKET_STATUSES)[number];
 
 /** Status yang dianggap "aktif" (masuk backlog, bisa dibatalkan). */
-export const ACTIVE_STATUSES: readonly TicketStatus[] = ['new', 'assigned', 'in_progress', 'pending'];
+export const ACTIVE_STATUSES: readonly TicketStatus[] = [
+  'new',
+  'assigned',
+  'in_progress',
+  'pending',
+];
 
 export const PENDING_REASONS = [
   'awaiting_user',

@@ -48,7 +48,11 @@ describe('override reason', () => {
 
 describe('helpers', () => {
   it('priorityRank mengurutkan P1 paling penting', () => {
-    expect(['P3', 'P1', 'P4', 'P2'].sort((a, b) => priorityRank(a as Priority) - priorityRank(b as Priority))).toEqual(['P1', 'P2', 'P3', 'P4']);
+    expect(
+      ['P3', 'P1', 'P4', 'P2'].sort(
+        (a, b) => priorityRank(a as Priority) - priorityRank(b as Priority),
+      ),
+    ).toEqual(['P1', 'P2', 'P3', 'P4']);
   });
   it('label tersedia untuk semua prioritas', () => {
     expect(PRIORITY_LABELS.P1).toBe('Critical');

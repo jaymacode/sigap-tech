@@ -63,7 +63,9 @@ describe('seed', () => {
     const share = (p: string) => tickets.filter((t) => t.priority === p).length / tickets.length;
     expect(share('P1')).toBeLessThan(0.06);
     expect(share('P3') + share('P4')).toBeGreaterThan(0.7);
-    const stopped = [...store.sla.values()].flatMap((p) => [p.response, p.resolution]).filter((i) => i.status === 'met' || i.status === 'breached');
+    const stopped = [...store.sla.values()]
+      .flatMap((p) => [p.response, p.resolution])
+      .filter((i) => i.status === 'met' || i.status === 'breached');
     const met = stopped.filter((i) => i.status === 'met').length / stopped.length;
     expect(met).toBeGreaterThan(0.8);
     expect(met).toBeLessThan(0.97);
@@ -71,7 +73,10 @@ describe('seed', () => {
 
   it('ada tiket aktif, unassigned, dan breached untuk demo', () => {
     const tickets = [...store.tickets.values()];
-    expect(tickets.filter((t) => ['new', 'assigned', 'in_progress', 'pending'].includes(t.status)).length).toBeGreaterThan(15);
+    expect(
+      tickets.filter((t) => ['new', 'assigned', 'in_progress', 'pending'].includes(t.status))
+        .length,
+    ).toBeGreaterThan(15);
     expect(tickets.some((t) => t.status === 'new' && t.assigneeId === null)).toBe(true);
     expect(tickets.some((t) => t.status === 'resolved' && t.requesterId === 'usr-user')).toBe(true);
     expect(tickets.some((t) => t.status === 'pending' && t.requesterId === 'usr-user')).toBe(true);
@@ -87,7 +92,9 @@ describe('seed', () => {
   it('deterministik: seed dua kali menghasilkan data identik', () => {
     const other = seeded();
     expect(other.tickets.size).toBe(store.tickets.size);
-    expect([...other.tickets.values()].map((t) => t.status)).toEqual([...store.tickets.values()].map((t) => t.status));
+    expect([...other.tickets.values()].map((t) => t.status)).toEqual(
+      [...store.tickets.values()].map((t) => t.status),
+    );
   });
 });
 
@@ -95,9 +102,18 @@ describe('engine', () => {
   it('createTicket: nomor berurutan, SLA aktif, event created', () => {
     const store = seeded();
     const before = store.sequences.incident;
-    const t = createTicket(store, {
-      catalogItemId: 'cat-item-laptop-dead', title: 'Tes', description: 'Deskripsi', urgency: 'high', formData: {},
-    }, user(store, 'usr-user'), NOW);
+    const t = createTicket(
+      store,
+      {
+        catalogItemId: 'cat-item-laptop-dead',
+        title: 'Tes',
+        description: 'Deskripsi',
+        urgency: 'high',
+        formData: {},
+      },
+      user(store, 'usr-user'),
+      NOW,
+    );
     expect(t.number).toBe(`INC-${String(before + 1).padStart(6, '0')}`);
     expect(t.status).toBe('new');
     expect(t.priority).toBe('P3'); // low × high
@@ -108,7 +124,18 @@ describe('engine', () => {
     const store = seeded();
     const agent = user(store, 'usr-agent');
     const requester = user(store, 'usr-user');
-    const t = createTicket(store, { catalogItemId: 'cat-item-laptop-slow', title: 'X', description: 'Y', urgency: 'medium', formData: {} }, requester, NOW);
+    const t = createTicket(
+      store,
+      {
+        catalogItemId: 'cat-item-laptop-slow',
+        title: 'X',
+        description: 'Y',
+        urgency: 'medium',
+        formData: {},
+      },
+      requester,
+      NOW,
+    );
     transitionTicket(store, t.id, 'assigned', agent, { assigneeId: agent.id }, NOW);
     const later = new Date(NOW.getTime() + 30 * 60_000);
     addComment(store, t.id, agent, 'Halo', 'public', later);
@@ -117,21 +144,34 @@ describe('engine', () => {
     transitionTicket(store, t.id, 'in_progress', agent, {}, later);
     transitionTicket(store, t.id, 'pending', agent, { pendingReason: 'awaiting_user' }, later);
     expect(store.sla.get(t.id)?.resolution.status).toBe('paused');
-    addComment(store, t.id, requester, 'Ini jawabannya', 'public', new Date(later.getTime() + 60_000));
+    addComment(
+      store,
+      t.id,
+      requester,
+      'Ini jawabannya',
+      'public',
+      new Date(later.getTime() + 60_000),
+    );
     expect(store.tickets.get(t.id)?.status).toBe('in_progress');
     expect(store.sla.get(t.id)?.resolution.status).toBe('running');
   });
 
   it('requester tidak bisa menulis catatan internal', () => {
     const store = seeded();
-    const t = [...store.tickets.values()].find((x) => x.requesterId === 'usr-user' && x.status === 'in_progress');
+    const t = [...store.tickets.values()].find(
+      (x) => x.requesterId === 'usr-user' && x.status === 'in_progress',
+    );
     expect(t).toBeDefined();
-    expect(() => addComment(store, t!.id, user(store, 'usr-user'), 'rahasia', 'internal', NOW)).toThrow(EngineError);
+    expect(() =>
+      addComment(store, t!.id, user(store, 'usr-user'), 'rahasia', 'internal', NOW),
+    ).toThrow(EngineError);
   });
 
   it('override prioritas: alasan wajib, event & rebaseline tercatat', () => {
     const store = seeded();
-    const t = [...store.tickets.values()].find((x) => x.status === 'in_progress' && x.priority === 'P3');
+    const t = [...store.tickets.values()].find(
+      (x) => x.status === 'in_progress' && x.priority === 'P3',
+    );
     expect(t).toBeDefined();
     const lead = user(store, 'usr-lead');
     expect(() => overridePriority(store, t!.id, 'P2', 'pendek', lead, NOW)).toThrow(EngineError);
@@ -144,12 +184,16 @@ describe('engine', () => {
 
   it('CSAT hanya sekali dan hanya setelah selesai', () => {
     const store = seeded();
-    const resolved = [...store.tickets.values()].find((x) => x.status === 'resolved' && !store.csat.has(x.id))!;
+    const resolved = [...store.tickets.values()].find(
+      (x) => x.status === 'resolved' && !store.csat.has(x.id),
+    )!;
     const requester = user(store, resolved.requesterId);
     submitCsat(store, resolved.id, 5, 'Mantap', requester, NOW);
     expect(() => submitCsat(store, resolved.id, 4, '', requester, NOW)).toThrow(EngineError);
     const active = [...store.tickets.values()].find((x) => x.status === 'in_progress')!;
-    expect(() => submitCsat(store, active.id, 5, '', user(store, active.requesterId), NOW)).toThrow(EngineError);
+    expect(() => submitCsat(store, active.id, 5, '', user(store, active.requesterId), NOW)).toThrow(
+      EngineError,
+    );
   });
 
   it('sla-tick idempoten: dijalankan 2× tidak menggandakan event/notifikasi', () => {
