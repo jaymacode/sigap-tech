@@ -90,6 +90,14 @@ export function nextId(store: Store, prefix: string): string {
 }
 
 /**
+ * Menghasilkan nomor perubahan urut berikutnya (CHG-000001).
+ */
+export function nextChangeNumber(store: Store): string {
+  store.sequences.change += 1;
+  return `CHG-${String(store.sequences.change).padStart(6, '0')}`;
+}
+
+/**
  * Kalender bisnis untuk perhitungan domain.
  * @param store - store
  * @param calendarId - id kalender
