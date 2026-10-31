@@ -18,7 +18,7 @@ async function doTick() {
       const data = await res.json();
       const stats = data.data;
       console.log(
-        `[sigap-worker] [${new Date().toISOString()}] Tick completed: warnings=${stats.warnings}, breaches=${stats.breaches}, escalations=${stats.escalations}, closed=${stats.autoClosed}`,
+        `[sigap-worker] [${new Date().toISOString()}] Tick completed: warned=${stats.warned}, breached=${stats.breached}, activeAtRisk=${stats.activeAtRisk}, autoClosed=${stats.autoClosed}`,
       );
     } else {
       console.warn(`[sigap-worker] Tick returned status ${res.status}: ${res.statusText}`);

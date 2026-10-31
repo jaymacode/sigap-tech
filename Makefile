@@ -11,11 +11,11 @@ up:
 	@echo " Mailpit:    http://localhost:$${MAILPIT_PORT:-8025}"
 	@echo " MinIO:      http://localhost:$${MINIO_CONSOLE_PORT:-9001}"
 	@echo ""
-	@echo " Akun Demo (klik tombol 'Isi Form' di halaman login):"
-	@echo " - Requester: requester@sigap.local (Password: demo123)"
-	@echo " - Agent:     agent@sigap.local     (Password: demo123)"
-	@echo " - Team Lead: lead@sigap.local      (Password: demo123)"
-	@echo " - Admin:     admin@sigap.local     (Password: demo123)"
+	@echo " Akun Demo (1-Click Login di halaman login):"
+	@echo " - Requester: user@sigap.demo  (Password: Demo1234!)"
+	@echo " - Agent:     agent@sigap.demo (Password: Demo1234!)"
+	@echo " - Team Lead: lead@sigap.demo  (Password: Demo1234!)"
+	@echo " - Admin:     admin@sigap.demo (Password: Demo1234!)"
 	@echo "=========================================================="
 
 up-build:

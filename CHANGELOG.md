@@ -2,7 +2,29 @@
 
 Semua perubahan pada proyek **Sigap** dicatat di dokumen ini berdasarkan panduan [Keep a Changelog](https://keepachangelog.com/id/1.0.0/).
 
-## [Unreleased] - 2026-10-23
+## [1.0.0] - 2026-11-01
+
+### Added
+- **Docker Containerization & Reviewer Stack**:
+  - `Dockerfile`: Multi-stage build (deps, builder standalone, lightweight node:22-alpine runner non-root).
+  - `docker-compose.yml`: Reviewer stack lengkap (PostgreSQL 16, MinIO object storage, MinIO Init, Mailpit, Migrate, Web Next.js 15, Worker) yang siap dijalankan dengan `docker compose up -d`.
+  - `docker-compose.dev.yml`: Dependensi lokal terisolasi untuk proses development mandiri.
+  - `.dockerignore` dan `.env.example`: Konfigurasi variabel lingkungan lokal aman dan siap pakai tanpa konfigurasi tambahan.
+- **Worker & System API Routes**:
+  - `scripts/worker.js`: Daemon background worker mandiri yang mengeksekusi pemeriksaan berkala SLA Tick dan auto-close tiket resolved > 3 hari setiap 60 detik.
+  - `/api/health`: Healthcheck endpoint resmi untuk docker health monitoring dan pipeline CI.
+  - `/api/worker/tick`: Endpoint pemrosesan worker periodik SLA & auto-close.
+  - `/api/changes` & `/api/changes/[id]`: Endpoint manajemen Change Record terintegrasi (Bearer token authenticated).
+- **Deployment & Lifecycle Automation**:
+  - `scripts/deploy.sh`: Script automated zero-downtime deployment lokal lengkap dengan pre-check, Change Request registration, snapshot backup, database migration, container swapping, health verification, dan automated rollback.
+  - `scripts/backup.sh` & `scripts/restore.sh`: Script pencadangan dan pemulihan snapshot data.
+  - `scripts/migrate.js` & `scripts/seed.js`: Runner migrasi dan seeding data demo relatif 90 hari.
+  - `Makefile`: Shortcut praktis (`up`, `up-build`, `down`, `reset`, `logs`, `backup`, `restore`, `deploy`, `dev`, `test`, `lint`, `typecheck`).
+- **Tests**:
+  - `tests/integration/routes.test.ts`: Automated test suite untuk endpoint `/api/health`, `/api/worker/tick`, dan `/api/changes`.
+  - Total 201 automated tests lulus 100%.
+
+## [0.1.0] - 2026-10-23
 
 ### Added
 - **Domain Logic (`src/domain/`)**:

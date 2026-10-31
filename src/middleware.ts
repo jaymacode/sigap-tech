@@ -1,15 +1,18 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 const SESSION_COOKIE = 'sigap_session';
-const PUBLIC_PATHS = ['/login', '/api/health'];
+const PUBLIC_PATHS = ['/login', '/api/health', '/api/worker', '/api/changes', '/api/search'];
 
 /**
  * Middleware: halaman non-publik wajib punya cookie sesi. Validasi role dilakukan di layout
  * server (`requireUser`) karena middleware edge tidak mengakses store.
+ * Endpoint /api/ menangani otorisasi sendiri (Bearer token atau header) dan tidak dialihkan ke /login.
  */
 export function middleware(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
-  const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  const isPublic =
+    pathname.startsWith('/api/') ||
+    PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   const hasSession = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
   if (!isPublic && !hasSession) {
     const url = request.nextUrl.clone();
