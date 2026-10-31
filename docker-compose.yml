@@ -67,6 +67,8 @@ services:
     command: ['/bin/sh', '-c', 'node scripts/migrate.js && node scripts/seed.js --if-empty']
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-sigap}
+    healthcheck:
+      disable: true
 
   web:
     build:
@@ -111,6 +113,11 @@ services:
       NODE_ENV: production
       SIGAP_WEB_URL: http://web:3000
       DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-sigap}
+    healthcheck:
+      test: ['CMD', 'pidof', 'node']
+      interval: 15s
+      timeout: 5s
+      retries: 3
 
 volumes:
   pgdata:
