@@ -24,6 +24,7 @@ import {
   transitionTicket as engineTransitionTicket,
   updateClassification as engineUpdateClassification,
   type AttachmentInput,
+  type TickResult,
 } from '@/server/mock/ticket-engine';
 
 export type ActionResult<T = unknown> =
@@ -244,9 +245,54 @@ export async function assignTicketAction(
     const ticket = store.tickets.get(parsed.ticketId);
     if (!ticket) return { ok: false, error: 'Tiket tidak ditemukan' };
 
-    const resource = { requesterId: ticket.requesterId, teamId: ticket.teamId };
+    const resource = {
+      requesterId: ticket.requesterId,
+      teamId: ticket.teamId,
+      assigneeId: ticket.assigneeId,
+    };
     if (!can(session, 'ticket.assign', resource)) {
       return { ok: false, error: 'Anda tidak memiliki hak penugasan tiket ini' };
+    }
+
+    // 1. Pindah tim (Eskalasi Fungsional / Reassign Tim)
+    if (parsed.teamId && parsed.teamId !== ticket.teamId) {
+      if (session.role === 'agent') {
+        if (!parsed.note || parsed.note.trim().length < 5) {
+          return {
+            ok: false,
+            error: 'Catatan eskalasi wajib diisi minimal 5 karakter untuk memindahkan tim',
+          };
+        }
+      } else if (!can(session, 'ticket.reassign_team', resource)) {
+        return { ok: false, error: 'Anda tidak memiliki hak memindahkan tiket ke tim lain' };
+      }
+    }
+
+    // 2. Pembatasan Penugasan Agent (ADR-008 Option B)
+    if (session.role === 'agent') {
+      if (ticket.assigneeId === null) {
+        // Tiket unassigned: hanya boleh klaim untuk diri sendiri
+        if (parsed.assigneeId !== null && parsed.assigneeId !== session.id) {
+          return {
+            ok: false,
+            error: 'Agent hanya berhak mengambil tiket unassigned untuk diri sendiri',
+          };
+        }
+      } else if (ticket.assigneeId === session.id) {
+        // Tiket milik sendiri: hanya boleh melepas ke unassigned
+        if (parsed.assigneeId !== null && parsed.assigneeId !== session.id) {
+          return {
+            ok: false,
+            error: 'Agent hanya berhak melepaskan penugasan tiket miliknya sendiri',
+          };
+        }
+      } else {
+        // Tiket milik agent lain: dilarang merebut
+        return {
+          ok: false,
+          error: 'Hanya Team Lead atau Admin yang berhak memindahkan tiket milik staf lain',
+        };
+      }
     }
 
     const actor = userRecord(store, session);
@@ -274,11 +320,32 @@ export async function bulkAssignAction(
     const actor = userRecord(store, session);
     let count = 0;
 
+    // Untuk agent: hanya boleh bulk assign ke dirinya sendiri
+    if (session.role === 'agent') {
+      if (assigneeId !== session.id && assigneeId !== null) {
+        return { ok: false, error: 'Agent hanya dapat mengambil tiket untuk diri sendiri' };
+      }
+      if (teamId && !session.teamIds.includes(teamId)) {
+        return { ok: false, error: 'Agent tidak dapat memindahkan tiket ke tim lain' };
+      }
+    }
+
     for (const id of ticketIds) {
       const ticket = store.tickets.get(id);
       if (!ticket) continue;
+      const resource = {
+        requesterId: ticket.requesterId,
+        teamId: ticket.teamId,
+        assigneeId: ticket.assigneeId,
+      };
+      if (!can(session, 'ticket.assign', resource)) {
+        continue;
+      }
+      // Agent tidak boleh merebut tiket agent lain
       if (
-        !can(session, 'ticket.assign', { requesterId: ticket.requesterId, teamId: ticket.teamId })
+        session.role === 'agent' &&
+        ticket.assigneeId !== null &&
+        ticket.assigneeId !== session.id
       ) {
         continue;
       }
@@ -426,16 +493,24 @@ export async function markAllNotificationsReadAction(): Promise<ActionResult> {
   }
 }
 
-export async function triggerSlaTickAction(): Promise<
-  ActionResult<{ warned: number; breached: number; autoClosed: number }>
-> {
+export async function triggerSlaTickAction(
+  advanceMinutes = 0,
+): Promise<ActionResult<TickResult & { simulatedNow: string }>> {
   try {
     await requireUser(['admin']);
     const store = getStore();
-    const result = runSlaTick(store, new Date());
+    const now = new Date(Date.now() + advanceMinutes * 60_000);
+    const result = runSlaTick(store, now);
+    revalidatePath('/admin');
     revalidatePath('/queue');
     revalidatePath('/dashboard');
-    return { ok: true, data: result };
+    return {
+      ok: true,
+      data: {
+        ...result,
+        simulatedNow: now.toISOString(),
+      },
+    };
   } catch (err: unknown) {
     return {
       ok: false,

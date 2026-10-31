@@ -7,6 +7,13 @@ const leadInfra: AuthUser = { id: 'ld', role: 'lead', teamIds: ['infra'], ledTea
 const admin: AuthUser = { id: 'ad', role: 'admin', teamIds: [], ledTeamIds: [] };
 
 const ownTicketL1: TicketResource = { requesterId: 'req', teamId: 'l1' };
+const ownUnassignedL1: TicketResource = { requesterId: 'req', teamId: 'l1', assigneeId: null };
+const ownAssignedToAgL1: TicketResource = { requesterId: 'req', teamId: 'l1', assigneeId: 'ag' };
+const assignedToOtherL1: TicketResource = {
+  requesterId: 'req',
+  teamId: 'l1',
+  assigneeId: 'other-agent',
+};
 const otherTicketInfra: TicketResource = { requesterId: 'someone', teamId: 'infra' };
 const unroutedTicket: TicketResource = { requesterId: 'someone', teamId: null };
 
@@ -33,7 +40,22 @@ const ROWS: Row[] = [
   ['agent tidak kerjakan tiket tanpa tim', agentL1, 'ticket.work', unroutedTicket, false],
   ['agent komentar internal tiket timnya', agentL1, 'ticket.comment_internal', ownTicketL1, true],
   ['agent tidak komentar tiket tim lain', agentL1, 'ticket.comment', otherTicketInfra, false],
-  ['agent assign di timnya', agentL1, 'ticket.assign', ownTicketL1, true],
+  [
+    'agent assign di timnya (fallback tanpa info assignee)',
+    agentL1,
+    'ticket.assign',
+    ownTicketL1,
+    true,
+  ],
+  ['agent assign tiket unassigned di timnya', agentL1, 'ticket.assign', ownUnassignedL1, true],
+  ['agent lepas tiket miliknya di timnya', agentL1, 'ticket.assign', ownAssignedToAgL1, true],
+  [
+    'agent tidak bisa assign tiket milik agent lain di timnya (ADR-008)',
+    agentL1,
+    'ticket.assign',
+    assignedToOtherL1,
+    false,
+  ],
   ['agent tidak reassign lintas tim', agentL1, 'ticket.reassign_team', ownTicketL1, false],
   ['agent tidak override prioritas', agentL1, 'ticket.override_priority', ownTicketL1, false],
   ['agent lihat queue', agentL1, 'queue.view', undefined, true],
@@ -54,11 +76,13 @@ const ROWS: Row[] = [
   ],
   ['lead tidak override di tim lain', leadInfra, 'ticket.override_priority', ownTicketL1, false],
   ['lead reassign lintas tim', leadInfra, 'ticket.reassign_team', ownTicketL1, true],
+  ['lead reassign tiket staf di timnya', leadInfra, 'ticket.assign', otherTicketInfra, true],
   ['lead lihat performa agent', leadInfra, 'dashboard.view_agents', undefined, true],
   ['lead kelola problem', leadInfra, 'problem.manage', undefined, true],
   ['lead tidak admin', leadInfra, 'admin.manage', undefined, false],
   // admin
   ['admin kerjakan semua', admin, 'ticket.work', otherTicketInfra, true],
+  ['admin assign tiket siapapun di tim manapun', admin, 'ticket.assign', assignedToOtherL1, true],
   ['admin override semua', admin, 'ticket.override_priority', ownTicketL1, true],
   ['admin kelola sistem', admin, 'admin.manage', undefined, true],
   ['admin tidak konfirmasi tiket orang lain', admin, 'ticket.confirm', ownTicketL1, false],

@@ -18,6 +18,7 @@ export interface AuthUser {
 export interface TicketResource {
   requesterId: string;
   teamId: string | null;
+  assigneeId?: string | null;
 }
 
 export type TicketAction =
@@ -57,6 +58,22 @@ const leadsTeam: TicketRule = (u, t) =>
 const canWork: TicketRule = (u, t) =>
   isAdmin(u) || ((u.role === 'agent' || u.role === 'lead') && (inTeam(u, t) || leadsTeam(u, t)));
 
+/**
+ * Hak penugasan tiket (ADR-008 Option B):
+ * - Admin: bebas di semua tim
+ * - Lead: bebas di tim yang ia pimpin atau anggotanya
+ * - Agent: hanya di timnya, dan HANYA untuk tiket unassigned (ambil) atau miliknya sendiri (lepas)
+ */
+const canAssign: TicketRule = (u, t) => {
+  if (isAdmin(u)) return true;
+  if (u.role === 'lead') return inTeam(u, t) || leadsTeam(u, t);
+  if (u.role === 'agent') {
+    if (!inTeam(u, t)) return false;
+    return t.assigneeId === undefined || t.assigneeId === null || t.assigneeId === u.id;
+  }
+  return false;
+};
+
 const TICKET_RULES: Readonly<Record<TicketAction, TicketRule>> = {
   // requester: hanya tiket miliknya; staff: semua (agent read-only untuk pencarian).
   'ticket.read': (u, t) => isStaff(u) || isOwner(u, t),
@@ -64,7 +81,7 @@ const TICKET_RULES: Readonly<Record<TicketAction, TicketRule>> = {
   'ticket.comment': (u, t) => isOwner(u, t) || canWork(u, t),
   'ticket.comment_internal': canWork,
   'ticket.work': canWork,
-  'ticket.assign': canWork,
+  'ticket.assign': canAssign,
   // PRD §4: lead boleh reassign lintas tim.
   'ticket.reassign_team': (u) => u.role === 'lead' || isAdmin(u),
   'ticket.override_priority': (u, t) => isAdmin(u) || leadsTeam(u, t),

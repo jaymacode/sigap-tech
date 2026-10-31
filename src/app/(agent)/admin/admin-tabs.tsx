@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   CheckCircle2,
@@ -13,14 +14,20 @@ import {
   Sliders,
   Users,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { NativeSelect } from '@/components/ui/input';
-import { toggleUserActiveAction, updateUserRoleAction } from '@/server/actions/admin';
+import {
+  toggleTeamAutoAssignAction,
+  toggleUserActiveAction,
+  updateUserRoleAction,
+} from '@/server/actions/admin';
 import { triggerSlaTickAction } from '@/server/actions/tickets';
 import { formatDateTime, formatDuration } from '@/lib/format';
 import type { AdminData } from '@/server/queries/admin';
 import type { Role } from '@/domain/types';
+import type { TickResult } from '@/server/mock/ticket-engine';
 
 interface AdminTabsProps {
   data: AdminData;
@@ -32,31 +39,72 @@ export function AdminTabs({ data }: AdminTabsProps) {
     'users' | 'teams' | 'categories' | 'catalog' | 'sla' | 'system'
   >('users');
 
-  const [tickResult, setTickResult] = React.useState<{
-    warned: number;
-    breached: number;
-    autoClosed: number;
-  } | null>(null);
+  const [togglingTeamId, setTogglingTeamId] = React.useState<string | null>(null);
+  const [advanceMinutes, setAdvanceMinutes] = React.useState<number>(0);
+  const [tickResult, setTickResult] = React.useState<
+    (TickResult & { simulatedNow?: string }) | null
+  >(null);
   const [isTicking, setIsTicking] = React.useState(false);
 
   const handleToggleUser = async (userId: string) => {
-    await toggleUserActiveAction(userId);
-    router.refresh();
+    const res = await toggleUserActiveAction(userId);
+    if (res.ok) {
+      toast.success(res.data ? 'Pengguna diaktifkan' : 'Pengguna dinonaktifkan');
+      router.refresh();
+    } else {
+      toast.error(res.error);
+    }
   };
 
   const handleUpdateRole = async (userId: string, role: Role) => {
-    await updateUserRoleAction(userId, role);
-    router.refresh();
+    const res = await updateUserRoleAction(userId, role);
+    if (res.ok) {
+      toast.success(`Role pengguna diperbarui menjadi ${role}`);
+      router.refresh();
+    } else {
+      toast.error(res.error);
+    }
   };
 
-  const handleTriggerTick = async () => {
+  const handleToggleTeamAutoAssign = async (teamId: string) => {
+    setTogglingTeamId(teamId);
+    try {
+      const res = await toggleTeamAutoAssignAction(teamId);
+      if (res.ok) {
+        toast.success(
+          res.data
+            ? 'Auto-Assign diaktifkan untuk tim ini'
+            : 'Auto-Assign dinonaktifkan untuk tim ini',
+        );
+        router.refresh();
+      } else {
+        toast.error(res.error);
+      }
+    } finally {
+      setTogglingTeamId(null);
+    }
+  };
+
+  const handleTriggerTick = async (minutes = advanceMinutes) => {
     setIsTicking(true);
     setTickResult(null);
     try {
-      const res = await triggerSlaTickAction();
+      const res = await triggerSlaTickAction(minutes);
       if (res.ok) {
         setTickResult(res.data);
+        const newlyProcessed = res.data.warned + res.data.breached + res.data.autoClosed;
+        if (newlyProcessed > 0) {
+          toast.success(
+            `SLA Tick memproses: ${res.data.warned} warning baru, ${res.data.breached} breach baru, ${res.data.autoClosed} auto-closed`,
+          );
+        } else {
+          toast.info(
+            `SLA Tick selesai: Terdeteksi ${res.data.activeBreached} tiket Breached & ${res.data.activeAtRisk} tiket At Risk (${res.data.totalRunning} SLA aktif dipantau)`,
+          );
+        }
         router.refresh();
+      } else {
+        toast.error(res.error);
       }
     } finally {
       setIsTicking(false);
@@ -212,15 +260,24 @@ export function AdminTabs({ data }: AdminTabsProps) {
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-fg text-base font-bold">{team.name}</CardTitle>
-                    <span
-                      className={`py-0.2 rounded px-1.5 text-[10px] font-semibold ${
+                    <button
+                      type="button"
+                      onClick={() => handleToggleTeamAutoAssign(team.id)}
+                      disabled={togglingTeamId === team.id}
+                      title="Klik untuk mengubah status auto-assign tim ini"
+                      className={`flex cursor-pointer items-center gap-1 rounded border px-2 py-0.5 text-[10px] font-semibold transition-all ${
                         team.autoAssign
-                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                          : 'bg-surface-2 text-muted'
+                          ? 'border-emerald-300 bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                          : 'border-border bg-surface-2 text-muted hover:bg-surface-3 hover:text-fg'
                       }`}
                     >
-                      {team.autoAssign ? 'Auto-Assign On' : 'Auto-Assign Off'}
-                    </span>
+                      <span
+                        className={`inline-block size-1.5 rounded-full ${
+                          team.autoAssign ? 'bg-emerald-600 dark:bg-emerald-400' : 'bg-muted'
+                        }`}
+                      />
+                      <span>{team.autoAssign ? 'Auto-Assign On' : 'Auto-Assign Off'}</span>
+                    </button>
                   </div>
                   <CardDescription className="text-xs">
                     Team Lead: <strong>{lead?.name ?? '—'}</strong>
@@ -390,8 +447,7 @@ export function AdminTabs({ data }: AdminTabsProps) {
                 Kalender Bisnis: Senin–Jumat 08:00–17:00 WIB (Istirahat 12:00–13:00)
               </CardTitle>
               <CardDescription className="text-xs">
-                Sesuai ITSM.md §4.2, jam istirahat dan hari libur nasional tidak dihitung dalam SLA
-                jam kerja.
+                Jam istirahat dan hari libur nasional tidak dihitung dalam SLA jam kerja.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -469,36 +525,177 @@ export function AdminTabs({ data }: AdminTabsProps) {
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <div className="text-muted text-xs">
-                  Waktu tick terakhir:{' '}
-                  <strong>
-                    {data.stats.workerLastTick
-                      ? formatDateTime(data.stats.workerLastTick)
-                      : 'Belum pernah dijalankan manual'}
-                  </strong>
+              <div className="flex flex-col gap-3">
+                <div className="bg-surface-2/40 border-border/60 flex flex-col gap-2 rounded-lg border p-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted">Waktu tick worker terakhir:</span>
+                    <strong className="text-fg font-mono">
+                      {data.stats.workerLastTick
+                        ? formatDateTime(data.stats.workerLastTick)
+                        : 'Belum pernah dijalankan'}
+                    </strong>
+                  </div>
+                  <div className="flex flex-col gap-1.5 pt-1">
+                    <span className="text-muted text-[11px] font-semibold">
+                      Pilihan Simulasi Waktu (Time-Travel Offset):
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { label: 'Waktu Nyata (0m)', val: 0 },
+                        { label: '+1 Jam (Warning 75%)', val: 60 },
+                        { label: '+1 Hari (Breach & Eskalasi)', val: 1440 },
+                        { label: '+3 Hari Kerja (Auto-Close)', val: 4320 },
+                      ].map((preset) => (
+                        <button
+                          key={preset.val}
+                          type="button"
+                          onClick={() => setAdvanceMinutes(preset.val)}
+                          className={`cursor-pointer rounded border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                            advanceMinutes === preset.val
+                              ? 'bg-accent border-accent text-white shadow-xs'
+                              : 'bg-surface-2 text-muted border-border hover:bg-surface-3 hover:text-fg'
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
-                <Button
-                  variant="primary"
-                  size="sm"
-                  disabled={isTicking}
-                  onClick={handleTriggerTick}
-                  className="gap-1.5"
-                >
-                  <RefreshCw className={`size-3.5 ${isTicking ? 'animate-spin' : ''}`} />
-                  <span>{isTicking ? 'Menjalankan...' : 'Jalankan SLA Tick Sekarang'}</span>
-                </Button>
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                  <p className="text-muted text-[11px]">
+                    {advanceMinutes === 0
+                      ? 'Menjalankan tick pada waktu sistem saat ini.'
+                      : `Mensimulasikan worker berjalan pada ${
+                          advanceMinutes >= 1440
+                            ? `+${advanceMinutes / 1440} hari`
+                            : `+${advanceMinutes / 60} jam`
+                        } di masa depan.`}
+                  </p>
+
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={isTicking}
+                    onClick={() => handleTriggerTick(advanceMinutes)}
+                    className="shrink-0 gap-1.5"
+                  >
+                    <RefreshCw className={`size-3.5 ${isTicking ? 'animate-spin' : ''}`} />
+                    <span>
+                      {isTicking
+                        ? 'Memproses...'
+                        : advanceMinutes > 0
+                          ? `Jalankan Tick (+${
+                              advanceMinutes >= 1440
+                                ? `${advanceMinutes / 1440} Hari`
+                                : `${advanceMinutes / 60} Jam`
+                            })`
+                          : 'Jalankan SLA Tick Sekarang'}
+                    </span>
+                  </Button>
+                </div>
               </div>
 
               {tickResult ? (
-                <div className="border-accent/40 bg-accent/5 animate-fade-in flex items-center gap-4 rounded-lg border p-3 text-xs">
-                  <CheckCircle2 className="text-accent size-4 shrink-0" />
-                  <span>
-                    Hasil Tick: <strong>{tickResult.warned}</strong> tiket diberi peringatan (75%),{' '}
-                    <strong>{tickResult.breached}</strong> tiket ditandai breached,{' '}
-                    <strong>{tickResult.autoClosed}</strong> tiket otomatis ditutup (3 hari kerja).
-                  </span>
+                <div className="border-accent/40 bg-accent/5 animate-fade-in flex flex-col gap-3 rounded-lg border p-3.5 text-xs">
+                  <div className="border-accent/20 flex flex-wrap items-center justify-between border-b pb-2">
+                    <div className="text-accent flex items-center gap-1.5 font-semibold">
+                      <CheckCircle2 className="size-4 shrink-0" />
+                      <span>Hasil Evaluasi SLA Tick Worker</span>
+                    </div>
+                    {tickResult.simulatedNow ? (
+                      <span className="text-muted font-mono text-[11px]">
+                        Waktu Evaluasi: {formatDateTime(tickResult.simulatedNow)}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {/* Ringkasan Status SLA Real-time */}
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-muted text-[11px] font-semibold tracking-wider uppercase">
+                      Status SLA Terdeteksi di Sistem Saat Ini ({tickResult.totalRunning} SLA
+                      aktif):
+                    </span>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <div className="bg-surface rounded-md border border-rose-500/20 p-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-rose-600 dark:text-rose-400">
+                            Tiket Breached ({tickResult.activeBreached}):
+                          </span>
+                          <span className="text-muted text-[10px]">
+                            {tickResult.breached > 0
+                              ? `+${tickResult.breached} baru ter-breach di tick ini`
+                              : 'Sudah tercatat sebelumnya'}
+                          </span>
+                        </div>
+                        {tickResult.breachedTickets.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5 pt-2">
+                            {tickResult.breachedTickets.map((num) => (
+                              <Link
+                                key={num}
+                                href={`/tickets/${num}`}
+                                className="rounded border border-rose-200 bg-rose-500/10 px-1.5 py-0.5 font-mono text-[11px] font-bold text-rose-600 hover:underline dark:border-rose-900/60 dark:text-rose-400"
+                              >
+                                {num}
+                              </Link>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-muted pt-1 text-[11px] italic">
+                            Tidak ada tiket aktif yang breached.
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="bg-surface rounded-md border border-amber-500/20 p-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-amber-600 dark:text-amber-400">
+                            Tiket Mendekati Batas / At Risk 75% ({tickResult.activeAtRisk}):
+                          </span>
+                          <span className="text-muted text-[10px]">
+                            {tickResult.warned > 0
+                              ? `+${tickResult.warned} baru diberi warning di tick ini`
+                              : 'Sudah diperingatkan'}
+                          </span>
+                        </div>
+                        {tickResult.atRiskTickets.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5 pt-2">
+                            {tickResult.atRiskTickets.map((num) => (
+                              <Link
+                                key={num}
+                                href={`/tickets/${num}`}
+                                className="rounded border border-amber-200 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[11px] font-bold text-amber-600 hover:underline dark:border-amber-900/60 dark:text-amber-400"
+                              >
+                                {num}
+                              </Link>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-muted pt-1 text-[11px] italic">
+                            Tidak ada tiket aktif mendekati batas.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tindakan Worker pada Tick Ini */}
+                  <div className="border-border/60 bg-surface-2/40 flex flex-col gap-1 rounded-md border p-2.5 text-[11px]">
+                    <div className="text-muted flex items-center justify-between">
+                      <span>Tindakan Baru yang Dieksekusi pada Tick Ini:</span>
+                      <span className="text-fg font-mono font-semibold">
+                        {tickResult.warned} warning baru · {tickResult.breached} breach baru ·{' '}
+                        {tickResult.autoClosed} auto-closed
+                      </span>
+                    </div>
+                    <p className="text-muted text-[10px]">
+                      Sesuai arsitektur ITSM (ADR-001 &amp; ADR-003), worker periodik bersifat{' '}
+                      <strong>idempoten</strong>: notifikasi dan pencatatan audit trail hanya dibuat
+                      sekali saat pertama kali tiket melampaui batas untuk mencegah duplikasi event
+                      berulang.
+                    </p>
+                  </div>
                 </div>
               ) : null}
             </CardContent>

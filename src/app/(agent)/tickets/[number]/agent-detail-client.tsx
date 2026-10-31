@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
+  ArrowRightLeft,
   CheckCircle2,
   Edit2,
   Lock,
@@ -13,8 +14,11 @@ import {
   Send,
   ShieldAlert,
   User,
+  UserCheck,
+  UserMinus,
   XCircle,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -40,7 +44,7 @@ import {
 import { formatDateTime, formatRelative } from '@/lib/format';
 import type { CalendarMap, TicketDetail } from '@/lib/views';
 import type { SessionUser } from '@/server/auth/session';
-import type { AssigneeOption } from '@/server/queries/tickets';
+import type { AssigneeOption, TeamOption } from '@/server/queries/tickets';
 import type {
   Impact,
   PendingReason,
@@ -54,10 +58,17 @@ interface AgentDetailClientProps {
   detail: TicketDetail;
   user: SessionUser;
   assignees: AssigneeOption[];
+  teams: TeamOption[];
   calendars: CalendarMap;
 }
 
-export function AgentDetailClient({ detail, user, assignees, calendars }: AgentDetailClientProps) {
+export function AgentDetailClient({
+  detail,
+  user,
+  assignees,
+  teams,
+  calendars,
+}: AgentDetailClientProps) {
   const router = useRouter();
 
   // Composer state
@@ -84,11 +95,37 @@ export function AgentDetailClient({ detail, user, assignees, calendars }: AgentD
   const [impact, setImpact] = React.useState<Impact>(detail.impact);
   const [urgency, setUrgency] = React.useState<Urgency>(detail.urgency);
 
+  const [escalateOpen, setEscalateOpen] = React.useState(false);
+  const [escalateTeamId, setEscalateTeamId] = React.useState('');
+  const [escalateNote, setEscalateNote] = React.useState('');
+
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [dialogError, setDialogError] = React.useState<string | null>(null);
 
   const cal = calendars[detail.resolution.calendarId];
   const canOverride = user.role === 'lead' || user.role === 'admin';
+
+  // Penugasan & Hak Akses (ADR-008 Option B)
+  const inTeam = detail.team ? user.teamIds.includes(detail.team.id) : false;
+  const leadsTeam = detail.team ? user.ledTeamIds.includes(detail.team.id) : false;
+  const isAdmin = user.role === 'admin';
+  const isLead = user.role === 'lead';
+  const canManageAssignment = isAdmin || leadsTeam || (isLead && inTeam);
+
+  const isAssignedToMe = detail.assignee?.id === user.id;
+  const isUnassigned = !detail.assignee;
+
+  const availableAssignees = React.useMemo(() => {
+    if (isAdmin) return assignees;
+    if (detail.team) {
+      return assignees.filter((a) => a.teamId === detail.team?.id);
+    }
+    return assignees;
+  }, [isAdmin, detail.team, assignees]);
+
+  const otherTeams = React.useMemo(() => {
+    return teams.filter((t) => t.id !== detail.team?.id);
+  }, [teams, detail.team]);
 
   // 1. Kirim Komentar / Internal Note
   const handleSendComment = async (e: React.FormEvent) => {
@@ -99,44 +136,99 @@ export function AgentDetailClient({ detail, user, assignees, calendars }: AgentD
       const res = await addCommentAction(detail.id, commentBody.trim(), commentMode);
       if (res.ok) {
         setCommentBody('');
+        toast.success(
+          commentMode === 'internal'
+            ? 'Catatan internal berhasil disimpan'
+            : 'Balasan berhasil dikirim ke pemohon',
+        );
         router.refresh();
+      } else {
+        toast.error(res.error);
       }
     } finally {
       setIsSubmittingComment(false);
     }
   };
 
-  // 2. Transisi Langsung (Start Progress, Assign To Me, Close)
+  // 2. Transisi Langsung (Start Progress, Close)
   const handleDirectTransition = async (to: TicketStatus) => {
     setIsProcessing(true);
     try {
-      await transitionTicketAction({
+      const res = await transitionTicketAction({
         ticketId: detail.id,
         to,
       });
-      router.refresh();
+      if (!res.ok) {
+        toast.error(res.error);
+      } else {
+        toast.success('Status tiket berhasil diperbarui');
+        router.refresh();
+      }
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // 3. Assign
+  // 3. Assign / Unassign
   const handleAssign = async (assigneeId: string | null) => {
     setIsProcessing(true);
     try {
-      const target = assignees.find((a) => a.id === assigneeId);
-      await assignTicketAction({
+      const res = await assignTicketAction({
         ticketId: detail.id,
         assigneeId,
-        teamId: target?.teamId ?? detail.team?.id,
+        teamId: detail.team?.id,
       });
-      router.refresh();
+      if (!res.ok) {
+        toast.error(res.error);
+      } else {
+        toast.success(
+          assigneeId
+            ? assigneeId === user.id
+              ? 'Tiket berhasil diambil untuk Anda'
+              : 'Penugasan tiket berhasil diperbarui'
+            : 'Tiket berhasil dikembalikan ke queue (Unassigned)',
+        );
+        router.refresh();
+      }
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // 4. Submit Dialog Pending
+  // 4. Eskalasi Fungsional (Pindah Tim)
+  const handleSubmitEscalate = async () => {
+    if (!escalateTeamId) {
+      setDialogError('Pilih tim tujuan eskalasi');
+      return;
+    }
+    if (escalateNote.trim().length < 5) {
+      setDialogError('Catatan eskalasi minimal 5 karakter');
+      return;
+    }
+    setIsProcessing(true);
+    setDialogError(null);
+    try {
+      const res = await assignTicketAction({
+        ticketId: detail.id,
+        assigneeId: null,
+        teamId: escalateTeamId,
+        note: escalateNote.trim(),
+      });
+      if (!res.ok) {
+        setDialogError(res.error);
+        toast.error(res.error);
+      } else {
+        toast.success('Tiket berhasil dieskalasi ke tim tujuan');
+        setEscalateOpen(false);
+        setEscalateNote('');
+        router.refresh();
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // 5. Submit Dialog Pending
   const handleSubmitPending = async () => {
     setIsProcessing(true);
     setDialogError(null);
@@ -146,8 +238,11 @@ export function AgentDetailClient({ detail, user, assignees, calendars }: AgentD
         to: 'pending',
         pendingReason,
       });
-      if (!res.ok) setDialogError(res.error);
-      else {
+      if (!res.ok) {
+        setDialogError(res.error);
+        toast.error(res.error);
+      } else {
+        toast.success('Status tiket diubah menjadi Pending (SLA dijeda)');
         setPendingOpen(false);
         router.refresh();
       }
@@ -156,7 +251,7 @@ export function AgentDetailClient({ detail, user, assignees, calendars }: AgentD
     }
   };
 
-  // 5. Submit Dialog Resolve
+  // 6. Submit Dialog Resolve
   const handleSubmitResolve = async () => {
     if (resolutionNotes.trim().length < 5) {
       setDialogError('Catatan penyelesaian minimal 5 karakter');
@@ -171,8 +266,11 @@ export function AgentDetailClient({ detail, user, assignees, calendars }: AgentD
         resolutionCode,
         resolutionNotes: resolutionNotes.trim(),
       });
-      if (!res.ok) setDialogError(res.error);
-      else {
+      if (!res.ok) {
+        setDialogError(res.error);
+        toast.error(res.error);
+      } else {
+        toast.success('Tiket berhasil diselesaikan (Resolved)');
         setResolveOpen(false);
         router.refresh();
       }
@@ -181,7 +279,7 @@ export function AgentDetailClient({ detail, user, assignees, calendars }: AgentD
     }
   };
 
-  // 6. Submit Dialog Cancel
+  // 7. Submit Dialog Cancel
   const handleSubmitCancel = async () => {
     if (cancelReason.trim().length < 5) {
       setDialogError('Alasan pembatalan minimal 5 karakter');
@@ -195,8 +293,11 @@ export function AgentDetailClient({ detail, user, assignees, calendars }: AgentD
         to: 'cancelled',
         cancellationReason: cancelReason.trim(),
       });
-      if (!res.ok) setDialogError(res.error);
-      else {
+      if (!res.ok) {
+        setDialogError(res.error);
+        toast.error(res.error);
+      } else {
+        toast.success('Tiket berhasil dibatalkan');
         setCancelOpen(false);
         router.refresh();
       }
@@ -205,7 +306,7 @@ export function AgentDetailClient({ detail, user, assignees, calendars }: AgentD
     }
   };
 
-  // 7. Submit Override Prioritas
+  // 8. Submit Override Prioritas
   const handleSubmitOverride = async () => {
     if (overrideReason.trim().length < 10) {
       setDialogError('Alasan override prioritas minimal 10 karakter');
@@ -215,8 +316,11 @@ export function AgentDetailClient({ detail, user, assignees, calendars }: AgentD
     setDialogError(null);
     try {
       const res = await overridePriorityAction(detail.id, overridePriority, overrideReason.trim());
-      if (!res.ok) setDialogError(res.error);
-      else {
+      if (!res.ok) {
+        setDialogError(res.error);
+        toast.error(res.error);
+      } else {
+        toast.success('Prioritas berhasil di-override & SLA dihitung ulang');
         setOverrideOpen(false);
         router.refresh();
       }
@@ -225,14 +329,17 @@ export function AgentDetailClient({ detail, user, assignees, calendars }: AgentD
     }
   };
 
-  // 8. Submit Klasifikasi Impact/Urgency
+  // 9. Submit Klasifikasi Impact/Urgency
   const handleSubmitClassify = async () => {
     setIsProcessing(true);
     setDialogError(null);
     try {
       const res = await updateClassificationAction(detail.id, impact, urgency);
-      if (!res.ok) setDialogError(res.error);
-      else {
+      if (!res.ok) {
+        setDialogError(res.error);
+        toast.error(res.error);
+      } else {
+        toast.success('Klasifikasi dampak & urgensi berhasil diperbarui');
         setClassifyOpen(false);
         router.refresh();
       }
@@ -534,34 +641,122 @@ export function AgentDetailClient({ detail, user, assignees, calendars }: AgentD
             </CardContent>
           </Card>
 
-          {/* 3. Penugasan & Tim Card */}
+          {/* 3. Penugasan & Tim Card (ADR-008 Option B) */}
           <Card className="shadow-xs">
             <CardHeader className="pb-2">
               <CardTitle className="text-muted text-xs font-semibold tracking-wider uppercase">
-                Penugasan Tiket
+                Penugasan & Tim
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3 text-xs">
-              <div className="flex flex-col gap-1">
-                <label className="text-muted">Assignee Saat Ini:</label>
-                <NativeSelect
-                  value={detail.assignee?.id ?? ''}
-                  onChange={(e) => handleAssign(e.target.value || null)}
-                  disabled={isProcessing || !isActive}
-                  className="h-8 text-xs"
-                >
-                  <option value="">-- Belum Ditugaskan (Unassigned) --</option>
-                  {assignees.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name} ({a.teamName}) · {a.activeLoad} tiket
-                    </option>
-                  ))}
-                </NativeSelect>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted">Tim Bertugas:</span>
+                  <span className="text-fg font-semibold">{detail.team?.name ?? '—'}</span>
+                </div>
+                {isActive && otherTeams.length > 0 && (inTeam || canManageAssignment) ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setEscalateTeamId('');
+                      setEscalateNote('');
+                      setDialogError(null);
+                      setEscalateOpen(true);
+                    }}
+                    disabled={isProcessing}
+                    className="text-muted hover:text-fg h-7 w-full justify-center text-xs"
+                  >
+                    <ArrowRightLeft className="mr-1.5 size-3.5" /> Eskalasi / Pindah Tim
+                  </Button>
+                ) : null}
               </div>
 
-              <div className="border-border flex items-center justify-between border-t pt-1">
-                <span className="text-muted">Tim Bertugas:</span>
-                <span className="text-fg font-semibold">{detail.team?.name ?? '—'}</span>
+              <div className="border-border flex flex-col gap-2 border-t pt-2">
+                {canManageAssignment ? (
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-muted">Assignee:</label>
+                      <span className="text-accent text-[10px] font-medium">Mode Lead/Admin</span>
+                    </div>
+                    <NativeSelect
+                      value={detail.assignee?.id ?? ''}
+                      onChange={(e) => handleAssign(e.target.value || null)}
+                      disabled={isProcessing || !isActive}
+                      className="h-8 text-xs"
+                    >
+                      <option value="">-- Belum Ditugaskan (Unassigned) --</option>
+                      {availableAssignees.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name} ({a.teamName}) · {a.activeLoad} tiket
+                        </option>
+                      ))}
+                    </NativeSelect>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted">Assignee:</span>
+                      {detail.assignee ? (
+                        <span className="text-fg flex items-center gap-1.5 font-semibold">
+                          <User className="text-muted size-3.5" />
+                          {detail.assignee.name}
+                          {isAssignedToMe ? (
+                            <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                              Anda
+                            </span>
+                          ) : null}
+                        </span>
+                      ) : (
+                        <span className="text-muted italic">Belum Ditugaskan</span>
+                      )}
+                    </div>
+
+                    {isActive ? (
+                      <div className="pt-1">
+                        {isUnassigned && inTeam ? (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={isProcessing}
+                            onClick={() => handleAssign(user.id)}
+                            className="bg-accent/10 text-accent hover:bg-accent/20 border-accent/20 w-full text-xs font-medium"
+                          >
+                            <UserCheck className="mr-1.5 size-3.5" /> Ambil Tiket Ini (Assign to Me)
+                          </Button>
+                        ) : null}
+
+                        {isUnassigned && !inTeam ? (
+                          <div className="bg-surface-2 text-muted flex items-start gap-1.5 rounded p-2 text-[11px]">
+                            <Lock className="mt-0.5 size-3.5 shrink-0" />
+                            <span>Tiket berada di luar tim Anda ({detail.team?.name ?? '—'}).</span>
+                          </div>
+                        ) : null}
+
+                        {isAssignedToMe ? (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={isProcessing}
+                            onClick={() => handleAssign(null)}
+                            className="text-muted hover:text-danger w-full text-xs"
+                          >
+                            <UserMinus className="mr-1.5 size-3.5" /> Lepas Tiket (Unassign)
+                          </Button>
+                        ) : null}
+
+                        {!isUnassigned && !isAssignedToMe ? (
+                          <div className="bg-surface-2 text-muted flex items-start gap-1.5 rounded p-2 text-[11px]">
+                            <Lock className="mt-0.5 size-3.5 shrink-0" />
+                            <span>
+                              Hanya Team Lead / Admin yang dapat memindahkan tiket milik staf lain.
+                            </span>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -869,6 +1064,71 @@ export function AgentDetailClient({ detail, user, assignees, calendars }: AgentD
             </Button>
             <Button variant="primary" disabled={isProcessing} onClick={handleSubmitClassify}>
               {isProcessing ? 'Menyimpan...' : 'Perbarui Klasifikasi'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIALOG ESKALASI TIM (ADR-008 Option B) */}
+      <Dialog open={escalateOpen} onOpenChange={setEscalateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eskalasi Fungsional (Pindah Tim)</DialogTitle>
+            <DialogDescription>
+              Pindahkan penanganan tiket ke tim spesialis lain. Tiket akan berstatus Unassigned di
+              tim baru dan alasan eskalasi wajib dicatat.
+            </DialogDescription>
+          </DialogHeader>
+
+          {dialogError ? (
+            <div className="border-danger/30 bg-danger/10 text-danger rounded border p-2 text-xs">
+              {dialogError}
+            </div>
+          ) : null}
+
+          <div className="flex flex-col gap-3 py-2">
+            <Field label="Tim Tujuan Eskalasi" htmlFor="escalate-team" required>
+              <NativeSelect
+                id="escalate-team"
+                value={escalateTeamId}
+                onChange={(e) => setEscalateTeamId(e.target.value)}
+              >
+                <option value="">-- Pilih Tim Tujuan --</option>
+                {otherTeams.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} — {t.description}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+
+            <Field
+              label="Alasan Eskalasi (Wajib Minimal 5 Karakter)"
+              htmlFor="escalate-note"
+              hint="Catatan ini dicatat permanen dalam audit trail tiket_events."
+              required
+            >
+              <Textarea
+                id="escalate-note"
+                rows={3}
+                value={escalateNote}
+                onChange={(e) => setEscalateNote(e.target.value)}
+                placeholder="Contoh: Kendala routing switch core memerlukan investigasi mendalam tim Network..."
+                required
+              />
+            </Field>
+          </div>
+
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setEscalateOpen(false)}>
+              Batal
+            </Button>
+            <Button
+              variant="primary"
+              disabled={isProcessing || !escalateTeamId || escalateNote.trim().length < 5}
+              onClick={handleSubmitEscalate}
+            >
+              {isProcessing ? 'Memproses...' : 'Konfirmasi Eskalasi'}
             </Button>
           </DialogFooter>
         </DialogContent>

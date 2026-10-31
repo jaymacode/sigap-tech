@@ -3,7 +3,12 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { requireUser } from '@/server/auth/session';
 import { getStore } from '@/server/mock/db';
-import { assigneeOptions, calendarsForClient, getTicketDetail } from '@/server/queries/tickets';
+import {
+  assigneeOptions,
+  calendarsForClient,
+  getTicketDetail,
+  teamOptions,
+} from '@/server/queries/tickets';
 import { AgentDetailClient } from './agent-detail-client';
 
 interface PageProps {
@@ -35,6 +40,7 @@ export default async function AgentTicketDetailPage({ params }: PageProps) {
   }
 
   const assignees = assigneeOptions(store);
+  const teams = teamOptions(store);
   const calendars = calendarsForClient(store);
 
   return (
@@ -52,6 +58,7 @@ export default async function AgentTicketDetailPage({ params }: PageProps) {
         detail={result.detail}
         user={user}
         assignees={assignees}
+        teams={teams}
         calendars={calendars}
       />
     </div>

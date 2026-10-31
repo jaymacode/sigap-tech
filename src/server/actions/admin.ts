@@ -87,6 +87,23 @@ export async function saveTeamAction(data: z.infer<typeof teamSchema>): Promise<
   }
 }
 
+export async function toggleTeamAutoAssignAction(teamId: string): Promise<ActionResult<boolean>> {
+  try {
+    await requireUser(['admin']);
+    const store = getStore();
+    const team = store.teams.get(teamId);
+    if (!team) return { ok: false, error: 'Tim tidak ditemukan' };
+    team.autoAssign = !team.autoAssign;
+    revalidatePath('/admin');
+    return { ok: true, data: team.autoAssign };
+  } catch (err: unknown) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'Gagal mengubah status auto-assign tim',
+    };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Catalog & Categories
 // ---------------------------------------------------------------------------

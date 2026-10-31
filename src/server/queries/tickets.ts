@@ -573,4 +573,19 @@ export function assigneeOptions(store: Store): AssigneeOption[] {
   return options;
 }
 
+export interface TeamOption {
+  id: string;
+  name: string;
+  description: string;
+}
+
+/** Daftar semua tim (untuk dialog eskalasi fungsional & filter). */
+export function teamOptions(store: Store): TeamOption[] {
+  return [...store.teams.values()].map((t) => ({
+    id: t.id,
+    name: t.name,
+    description: t.description,
+  }));
+}
+
 export { primarySla };

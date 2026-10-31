@@ -216,4 +216,46 @@ describe('engine', () => {
     runSlaTick(store, farFuture);
     for (const r of resolved) expect(store.tickets.get(r.id)?.status).toBe('closed');
   });
+
+  it('autoAssign tim: menugaskan ke agent aktif dengan load paling sedikit bila on, unassigned bila off', () => {
+    const store = seeded();
+    const team = [...store.teams.values()][0]!;
+    const requester = [...store.users.values()].find((u) => u.role === 'requester')!;
+    const catalogItem = [...store.catalog.values()][0]!;
+
+    // Case 1: team autoAssign = false
+    team.autoAssign = false;
+    const ticketUnassigned = createTicket(
+      store,
+      {
+        catalogItemId: catalogItem.id,
+        title: 'Test Unassigned Ticket',
+        description: 'Test description',
+        urgency: 'medium',
+        formData: {},
+      },
+      requester,
+      NOW,
+    );
+    expect(ticketUnassigned.status).toBe('new');
+    expect(ticketUnassigned.assigneeId).toBeNull();
+
+    // Case 2: team autoAssign = true
+    team.autoAssign = true;
+    const ticketAssigned = createTicket(
+      store,
+      {
+        catalogItemId: catalogItem.id,
+        title: 'Test Auto-assigned Ticket',
+        description: 'Test description',
+        urgency: 'medium',
+        formData: {},
+      },
+      requester,
+      NOW,
+    );
+    expect(ticketAssigned.status).toBe('assigned');
+    expect(ticketAssigned.assigneeId).not.toBeNull();
+    expect(team.memberIds).toContain(ticketAssigned.assigneeId!);
+  });
 });

@@ -823,6 +823,11 @@ export interface TickResult {
   warned: number;
   breached: number;
   autoClosed: number;
+  totalRunning: number;
+  activeBreached: number;
+  activeAtRisk: number;
+  breachedTickets: string[];
+  atRiskTickets: string[];
 }
 
 function adminIds(store: Store): string[] {
@@ -836,18 +841,39 @@ function adminIds(store: Store): string[] {
  * @param now - waktu tick
  */
 export function runSlaTick(store: Store, now: Date): TickResult {
-  const result: TickResult = { warned: 0, breached: 0, autoClosed: 0 };
+  const result: TickResult = {
+    warned: 0,
+    breached: 0,
+    autoClosed: 0,
+    totalRunning: 0,
+    activeBreached: 0,
+    activeAtRisk: 0,
+    breachedTickets: [],
+    atRiskTickets: [],
+  };
+
+  const seenBreached = new Set<string>();
+  const seenAtRisk = new Set<string>();
+
   for (const [ticketId, pair] of store.sla) {
+    const ticket = store.tickets.get(ticketId);
+    if (!ticket || !ACTIVE_STATUSES.includes(ticket.status)) continue;
+
     for (const kind of ['response', 'resolution'] as const) {
       const instance = pair[kind];
       if (instance.status !== 'running') continue;
-      if (instance.warnAt > now && instance.dueAt > now) continue; // murah: index (status, warn_at)
-      const ticket = store.tickets.get(ticketId);
-      if (!ticket) continue;
+      result.totalRunning += 1;
+
       const cal = businessCalendar(store, instance.calendarId);
       const state = computeSlaState(instance, now, cal);
       const kindLabel = kind === 'response' ? 'Response' : 'Resolution';
       const p1p2 = ticket.priority === 'P1' || ticket.priority === 'P2';
+
+      if (state.breached) {
+        seenBreached.add(ticket.number);
+      } else if (state.atRisk) {
+        seenAtRisk.add(ticket.number);
+      }
 
       if (state.percentUsed >= 75 && !instance.warnedAt) {
         setSla(store, ticketId, kind, { ...instance, warnedAt: now });
@@ -926,6 +952,11 @@ export function runSlaTick(store: Store, now: Date): TickResult {
       }
     }
   }
+
+  result.activeBreached = seenBreached.size;
+  result.activeAtRisk = seenAtRisk.size;
+  result.breachedTickets = [...seenBreached];
+  result.atRiskTickets = [...seenAtRisk];
 
   const businessCal = businessCalendar(store, CAL_BUSINESS);
   for (const ticket of [...store.tickets.values()]) {

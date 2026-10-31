@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowUpDown, ChevronLeft, ChevronRight, RefreshCw, Search, UserCheck } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/controls';
 import { Input, NativeSelect } from '@/components/ui/input';
@@ -106,10 +107,15 @@ export function QueueTable({ initialResult, filters, assignees, calendars }: Que
     setIsBulkPending(true);
     try {
       const assignee = assignees.find((a) => a.id === bulkAssigneeId);
-      await bulkAssignAction(selectedIds, bulkAssigneeId, assignee?.teamId);
-      setSelectedIds([]);
-      setBulkAssigneeId('');
-      router.refresh();
+      const res = await bulkAssignAction(selectedIds, bulkAssigneeId, assignee?.teamId);
+      if (!res.ok) {
+        toast.error(res.error);
+      } else {
+        toast.success(`${res.data.count} tiket berhasil ditugaskan`);
+        setSelectedIds([]);
+        setBulkAssigneeId('');
+        router.refresh();
+      }
     } finally {
       setIsBulkPending(false);
     }

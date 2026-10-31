@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { computeSlaState } from '@/domain/sla';
-import { formatDateTime, formatDuration } from '@/lib/format';
+import { formatDateTime, formatSlaTarget } from '@/lib/format';
 import { fromSlaSnapshot, type SlaSnapshot } from '@/lib/views';
 import { DEFAULT_TIMEZONE, DEFAULT_WORK_HOURS, type BusinessCalendar } from '@/domain/calendar';
 import { SlaIndicator } from './sla-indicator';
@@ -66,7 +66,7 @@ export function SlaCard({ response, resolution, policyName, calendar }: SlaCardP
             atRisk={respState.atRisk}
           />
           <div className="text-muted flex items-center justify-between pt-0.5">
-            <span>Target: {formatDuration(response.targetMinutes)}</span>
+            <span>Target: {formatSlaTarget(response.targetMinutes, cal.kind)}</span>
             <span>
               {response.stoppedAt
                 ? `Selesai ${formatDateTime(response.stoppedAt)}`
@@ -87,7 +87,7 @@ export function SlaCard({ response, resolution, policyName, calendar }: SlaCardP
             atRisk={resState.atRisk}
           />
           <div className="text-muted flex items-center justify-between pt-0.5">
-            <span>Target: {formatDuration(resolution.targetMinutes)}</span>
+            <span>Target: {formatSlaTarget(resolution.targetMinutes, cal.kind)}</span>
             <span>
               {resolution.stoppedAt
                 ? `Selesai ${formatDateTime(resolution.stoppedAt)}`
