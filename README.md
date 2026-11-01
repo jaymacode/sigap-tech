@@ -20,7 +20,7 @@ Sigap adalah aplikasi IT Service Desk yang dibangun dengan Next.js 15 (App Route
 
 Data disimpan di **PostgreSQL 16**, yang menjadi *system of record*. Skema dikelola sebagai migrasi SQL biasa di `db/migrations/`. Keputusan desainnya dirangkum di bagian ADR-010 di bawah.
 
-Proyek ini dibuat sebagai portofolio untuk mendemonstrasikan cara mengoperasikan layanan IT sesuai praktik ITIL 4 (Service Level Management, Incident Management, Service Request Management, Change Enablement, dan Continual Improvement), bukan sekadar aplikasi CRUD. Sasaran pembacanya adalah tim IT yang membutuhkan pelacakan SLA dan audit, serta reviewer yang ingin melihat bagaimana proses tersebut diterjemahkan ke dalam kode. Sigap belum dimaksudkan sebagai produk produksi; status dan keterbatasan dijelaskan di bagian [Status & Keterbatasan](#status--keterbatasan).
+Proyek ini dibuat sebagai portofolio untuk mendemonstrasikan cara mengoperasikan layanan IT sesuai praktik ITIL 4 (Service Level Management, Incident Management, Service Request Management, Change Enablement, dan Continual Improvement), bukan sekadar aplikasi CRUD. Sasaran pembacanya adalah tim IT yang membutuhkan pelacakan SLA dan audit, serta reviewer yang ingin melihat bagaimana proses tersebut diterjemahkan ke dalam kode.
 
 ---
 
@@ -131,7 +131,6 @@ Alur singkat:
 3. **Tulis.** Setiap mutasi diikuti penyimpanan perubahan ke Postgres dalam satu transaksi. Jika gagal, transaksi di-rollback dan memori dimuat ulang dari database, sehingga memori tidak pernah menyimpang dari data yang tersimpan.
 4. **Worker.** Container `worker` hanya memanggil `POST /api/worker/tick` pada web. Hanya proses web yang menulis ke database.
 
-**Batasan skala:** karena read model ada di memori proses, saat ini web hanya boleh berjalan dengan **satu replika**. Menambah replika web memerlukan lapisan lain (misalnya invalidasi cache atau membaca langsung dari Postgres) dan belum didukung.
 
 ### Keputusan Arsitektur Utama (ADR)
 
@@ -319,8 +318,6 @@ Hasil terakhir yang terverifikasi:
 * `pnpm test:db`: 15 test integrasi PostgreSQL lulus (7 file). `docker compose --profile test run --rm test` menjalankan keduanya: 227/227 lulus.
 * `pnpm typecheck`: lihat hasil `pnpm typecheck`.
 
-Belum ada konfigurasi Playwright maupun spec end-to-end di repositori ini, sehingga script `e2e` sudah dihapus dari `package.json`. Tidak ada workflow GitHub Actions (`.github/`) yang dijalankan saat ini.
-
 ---
 
 ## Struktur Proyek
@@ -358,31 +355,3 @@ Belum ada konfigurasi Playwright maupun spec end-to-end di repositori ini, sehin
 ```
 
 ---
-
-## Status & Keterbatasan
-
-Bagian ini menjelaskan apa yang sudah dan belum berfungsi, sehingga Sigap dapat dinilai sesuai kondisinya.
-
-* **Belum di-hosting.** Sigap dijalankan secara lokal melalui Docker Compose. Tidak ada deployment publik.
-* **Satu replika web.** Read model berada di memori proses web, dan hanya proses web yang menulis ke database. Menjalankan lebih dari satu replika web belum didukung.
-* **Persistensi.** Data disimpan di Postgres dan bertahan lewat restart (`docker compose restart web`) serta `docker compose down` dan `up`. Hanya `docker compose down -v` yang menghapus data.
-* **Migrasi dan seed.** `scripts/migrate.js` menerapkan migrasi SQL dengan advisory lock. Web juga memastikan migrasi di boot dengan kunci yang sama. Seed demo dilakukan web saat boot, hanya bila tabel tiket dan user kosong. `scripts/seed.js` tidak menulis data.
-* **Autentikasi demo.** Login email memverifikasi password terhadap hash scrypt pada akun demo, dan pesan error sama untuk email tidak terdaftar maupun password salah. Ini tetap demo: belum ada rate limiting, reset password, atau integrasi Auth.js.
-* **Audit trail.** `ticket_events` bersifat append-only dan dijaga trigger database. Trigger menolak UPDATE, DELETE, dan TRUNCATE. Satu-satunya jalur yang melewati trigger adalah reset demo, yang sengaja dibuat di `resetDatabaseStore`.
-* **Notifikasi dan lampiran.** Notifikasi email belum dikirim ke Mailpit. Belum ada endpoint unggah lampiran ke MinIO; lampiran pada data demo hanya metadata.
-* **Deploy dan backup.** `scripts/deploy.sh` belum pernah dijalankan end-to-end. Skrip ini memakai nama image yang sama dengan `docker-compose.yml`, yaitu `${SIGAP_IMAGE:-ghcr.io/sigap/sigap}`. Image belum dipublikasikan ke GHCR, sehingga skrip biasanya membangun image lokal sebagai fallback. `scripts/backup.sh` dan `scripts/restore.sh` memakai `pg_dump` dan `psql` terhadap service `db`, tetapi belum diuji pada siklus backup lalu restore penuh.
-* **CI/CD belum ada.** Belum ada pipeline otomatis; jalankan pengecekan secara lokal atau lewat `docker compose --profile test run --rm test`.
-* **Mode demo.** Status Sistem dan time-travel hanya untuk simulasi di lingkungan evaluasi.
-
----
-
-## Lisensi
-
-Proyek ini dilisensikan di bawah [MIT License](LICENSE).
-
-## Penulis
-
-**Jaya Saputra** (Full-stack Developer)
-LinkedIn: [linkedin.com/in/jayasssaputra](https://linkedin.com/in/jayasssaputra)
-
-Dikembangkan sebagai portofolio implementasi arsitektur ITSM dan IT Service Management.
