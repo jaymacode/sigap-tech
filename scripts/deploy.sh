@@ -16,6 +16,7 @@ exec > >(tee -a "$LOG_FILE") 2>&1
 START_TIME=$(date +%s)
 WEB_URL="${SIGAP_WEB_URL:-http://localhost:3000}"
 CHANGE_TOKEN="${CHANGE_WEBHOOK_TOKEN:-local-change-token}"
+SIGAP_IMAGE="${SIGAP_IMAGE:-ghcr.io/sigap/sigap}"
 
 echo "=========================================================="
 echo " Sigap Automated Deployment Process: ${TARGET_VERSION}"
@@ -91,7 +92,7 @@ cp "$BACKUP_FILE" "/tmp/sigap_backup_${TIMESTAMP}.dump" 2>/dev/null || true
 
 # 4. Pull / Build Image
 echo "[4/8] Menyiapkan image Docker..."
-if docker pull "ghcr.io/antigravity/sigap:${TARGET_VERSION}" 2>/dev/null; then
+if docker pull "${SIGAP_IMAGE}:${TARGET_VERSION}" 2>/dev/null; then
   echo "Image ditarik dari registry."
 else
   echo "Registry offline atau image tidak ditemukan, membangun image lokal..."

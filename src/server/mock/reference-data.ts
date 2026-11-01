@@ -1,5 +1,7 @@
 import { DEFAULT_TIMEZONE, DEFAULT_WORK_HOURS } from '@/domain/calendar';
+import { DEMO_PASSWORD } from '@/domain/demo';
 import type { Role } from '@/domain/types';
+import { hashPassword } from '@/server/auth/credentials';
 import type {
   CalendarRecord,
   CatalogItemRecord,
@@ -14,8 +16,6 @@ import type {
  * Data referensi seed (DATA_MODEL.md §Seed): 1 admin, 2 lead, 6 agent, 40 requester,
  * 3 tim, kategori 2 level, 15 item katalog, kalender, libur nasional, SLA policy.
  */
-
-export const DEMO_PASSWORD = 'Demo1234!';
 
 export const DEMO_ACCOUNTS = [
   { email: 'user@sigap.demo', role: 'requester', label: 'Requester' },
@@ -120,6 +120,7 @@ export function buildUsers(createdAt: Date): UserRecord[] {
     role,
     department,
     isActive: true,
+    passwordHash: hashPassword(DEMO_PASSWORD),
     lastLoginAt: null,
     createdAt,
   }));
@@ -130,6 +131,7 @@ export function buildUsers(createdAt: Date): UserRecord[] {
     role: 'requester' as const,
     department: DEPARTMENTS[i % DEPARTMENTS.length] ?? 'Umum',
     isActive: i !== 39, // satu user nonaktif untuk contoh admin
+    passwordHash: hashPassword(DEMO_PASSWORD),
     lastLoginAt: null,
     createdAt,
   }));

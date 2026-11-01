@@ -7,6 +7,7 @@ import { requireUser } from '@/server/auth/session';
 import { getStore } from '@/server/mock/db';
 import { nextId } from '@/server/mock/store';
 import type { CatalogItemRecord, CategoryRecord, TeamRecord } from '@/server/mock/types';
+import { DB_ERROR_RESULT, persistOrFail } from '@/server/actions/persist';
 import type { ActionResult } from './tickets';
 
 // ---------------------------------------------------------------------------
@@ -20,6 +21,7 @@ export async function toggleUserActiveAction(userId: string): Promise<ActionResu
     const user = store.users.get(userId);
     if (!user) return { ok: false, error: 'User tidak ditemukan' };
     user.isActive = !user.isActive;
+    if (!(await persistOrFail())) return DB_ERROR_RESULT;
     revalidatePath('/admin');
     return { ok: true, data: user.isActive };
   } catch (err: unknown) {
@@ -34,6 +36,7 @@ export async function updateUserRoleAction(userId: string, role: Role): Promise<
     const user = store.users.get(userId);
     if (!user) return { ok: false, error: 'User tidak ditemukan' };
     user.role = role;
+    if (!(await persistOrFail())) return DB_ERROR_RESULT;
     revalidatePath('/admin');
     return { ok: true, data: true };
   } catch (err: unknown) {
@@ -80,6 +83,7 @@ export async function saveTeamAction(data: z.infer<typeof teamSchema>): Promise<
       store.teams.set(newId, record);
     }
 
+    if (!(await persistOrFail())) return DB_ERROR_RESULT;
     revalidatePath('/admin');
     return { ok: true, data: true };
   } catch (err: unknown) {
@@ -94,6 +98,7 @@ export async function toggleTeamAutoAssignAction(teamId: string): Promise<Action
     const team = store.teams.get(teamId);
     if (!team) return { ok: false, error: 'Tim tidak ditemukan' };
     team.autoAssign = !team.autoAssign;
+    if (!(await persistOrFail())) return DB_ERROR_RESULT;
     revalidatePath('/admin');
     return { ok: true, data: team.autoAssign };
   } catch (err: unknown) {
@@ -141,6 +146,7 @@ export async function saveCategoryAction(
       store.categories.set(newId, record);
     }
 
+    if (!(await persistOrFail())) return DB_ERROR_RESULT;
     revalidatePath('/admin');
     return { ok: true, data: true };
   } catch (err: unknown) {
@@ -205,6 +211,7 @@ export async function saveCatalogItemAction(
       store.catalog.set(newId, record);
     }
 
+    if (!(await persistOrFail())) return DB_ERROR_RESULT;
     revalidatePath('/admin');
     revalidatePath('/portal');
     return { ok: true, data: true };

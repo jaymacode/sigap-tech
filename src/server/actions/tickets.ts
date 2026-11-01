@@ -14,6 +14,7 @@ import {
 import { can } from '@/server/auth/rbac';
 import { requireUser, userRecord } from '@/server/auth/session';
 import { getStore } from '@/server/mock/db';
+import { DB_ERROR_RESULT, persistOrFail } from '@/server/actions/persist';
 import {
   addComment as engineAddComment,
   assignTicket as engineAssignTicket,
@@ -81,6 +82,7 @@ export async function createTicketAction(
       new Date(),
     );
 
+    if (!(await persistOrFail())) return DB_ERROR_RESULT;
     revalidatePath('/portal');
     revalidatePath('/portal/tickets');
     revalidatePath('/queue');
@@ -145,6 +147,7 @@ export async function addCommentAction(
       parsed.attachments,
     );
 
+    if (!(await persistOrFail())) return DB_ERROR_RESULT;
     revalidatePath(`/tickets/${ticket.number}`);
     revalidatePath(`/portal/tickets/${ticket.number}`);
     return { ok: true, data: true };
@@ -214,6 +217,7 @@ export async function transitionTicketAction(
       new Date(),
     );
 
+    if (!(await persistOrFail())) return DB_ERROR_RESULT;
     revalidatePath(`/tickets/${ticket.number}`);
     revalidatePath(`/portal/tickets/${ticket.number}`);
     revalidatePath('/queue');
@@ -298,6 +302,7 @@ export async function assignTicketAction(
     const actor = userRecord(store, session);
     engineAssignTicket(store, ticket.id, parsed, actor, new Date());
 
+    if (!(await persistOrFail())) return DB_ERROR_RESULT;
     revalidatePath(`/tickets/${ticket.number}`);
     revalidatePath('/queue');
     return { ok: true, data: true };
@@ -353,6 +358,7 @@ export async function bulkAssignAction(
       count++;
     }
 
+    if (!(await persistOrFail())) return DB_ERROR_RESULT;
     revalidatePath('/queue');
     return { ok: true, data: { count } };
   } catch (err: unknown) {
@@ -390,6 +396,7 @@ export async function overridePriorityAction(
     const actor = userRecord(store, session);
     engineOverridePriority(store, ticket.id, priority, reason, actor, new Date());
 
+    if (!(await persistOrFail())) return DB_ERROR_RESULT;
     revalidatePath(`/tickets/${ticket.number}`);
     revalidatePath('/queue');
     return { ok: true, data: true };
@@ -412,6 +419,7 @@ export async function updateClassificationAction(
     const actor = userRecord(store, session);
     engineUpdateClassification(store, ticket.id, impact, urgency, actor, new Date());
 
+    if (!(await persistOrFail())) return DB_ERROR_RESULT;
     revalidatePath(`/tickets/${ticket.number}`);
     revalidatePath('/queue');
     return { ok: true, data: true };
@@ -442,6 +450,7 @@ export async function submitCsatAction(
     const actor = userRecord(store, session);
     engineSubmitCsat(store, ticket.id, score, comment, actor, new Date());
 
+    if (!(await persistOrFail())) return DB_ERROR_RESULT;
     revalidatePath(`/portal/tickets/${ticket.number}`);
     return { ok: true, data: true };
   } catch (err: unknown) {
@@ -463,6 +472,7 @@ export async function markNotificationReadAction(notificationId: string): Promis
     if (n) {
       n.readAt = new Date();
     }
+    if (!(await persistOrFail())) return DB_ERROR_RESULT;
     revalidatePath('/notifications');
     return { ok: true, data: true };
   } catch (err: unknown) {
@@ -483,6 +493,7 @@ export async function markAllNotificationsReadAction(): Promise<ActionResult> {
         n.readAt = now;
       }
     }
+    if (!(await persistOrFail())) return DB_ERROR_RESULT;
     revalidatePath('/notifications');
     return { ok: true, data: true };
   } catch (err: unknown) {
@@ -501,6 +512,7 @@ export async function triggerSlaTickAction(
     const store = getStore();
     const now = new Date(Date.now() + advanceMinutes * 60_000);
     const result = runSlaTick(store, now);
+    if (!(await persistOrFail())) return DB_ERROR_RESULT;
     revalidatePath('/admin');
     revalidatePath('/queue');
     revalidatePath('/dashboard');

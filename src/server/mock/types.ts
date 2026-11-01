@@ -24,6 +24,8 @@ export interface UserRecord {
   role: Role;
   department: string;
   isActive: boolean;
+  /** Hash scrypt password (lihat `hashPassword` di server/auth/credentials.ts). */
+  passwordHash: string;
   lastLoginAt: Date | null;
   createdAt: Date;
 }

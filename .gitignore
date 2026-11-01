@@ -22,3 +22,12 @@ blob-report/
 *.log
 .DS_Store
 *.tsbuildinfo
+
+# Database backups (scripts/backup.sh)
+backups/
+
+# Agent docs, design tooling and CI kept local only
+docs/
+AGENTS.md
+.impeccable/
+.github/

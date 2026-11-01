@@ -1,5 +1,5 @@
 /**
- * Format waktu & durasi untuk UI. Konversi zona waktu HANYA dilakukan di sini (AGENTS.md):
+ * Format waktu & durasi untuk UI. Konversi zona waktu HANYA dilakukan di sini:
  * data disimpan/dikirim sebagai UTC ISO string.
  */
 

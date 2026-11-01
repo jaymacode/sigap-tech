@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { getStore } from '@/server/mock/db';
+import { DB_ERROR_RESULT, persistOrFail } from '@/server/actions/persist';
 import type { ChangeStatus } from '@/server/mock/types';
 
 export const dynamic = 'force-dynamic';
@@ -37,6 +38,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     change.status = parsed.status as ChangeStatus;
     if (['succeeded', 'failed', 'rolled_back'].includes(parsed.status)) {
       change.finishedAt = new Date();
+    }
+
+    if (!(await persistOrFail())) {
+      return NextResponse.json(DB_ERROR_RESULT, { status: 500 });
     }
 
     return NextResponse.json({ ok: true, data: change });

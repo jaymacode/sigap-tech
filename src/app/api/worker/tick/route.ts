@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getStore } from '@/server/mock/db';
 import { runSlaTick } from '@/server/mock/ticket-engine';
+import { DB_ERROR_RESULT, persistOrFail } from '@/server/actions/persist';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +12,9 @@ export async function POST() {
   try {
     const store = getStore();
     const result = runSlaTick(store, new Date());
+    if (!(await persistOrFail())) {
+      return NextResponse.json(DB_ERROR_RESULT, { status: 500 });
+    }
     return NextResponse.json({
       ok: true,
       data: {

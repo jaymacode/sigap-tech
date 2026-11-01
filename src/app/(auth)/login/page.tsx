@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input, Label } from '@/components/ui/input';
 import { loginWithDemo, loginWithEmail } from '@/server/actions/auth';
 import type { Role } from '@/domain/types';
+import { DEMO_PASSWORD } from '@/domain/demo';
 
 const DEMO_CARDS: Array<{
   role: Role;
@@ -47,6 +48,7 @@ const DEMO_CARDS: Array<{
 
 export default function LoginPage() {
   const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState(DEMO_PASSWORD);
   const [error, setError] = React.useState<string | null>(null);
   const [loadingRole, setLoadingRole] = React.useState<Role | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -68,7 +70,7 @@ export default function LoginPage() {
     setIsSubmitting(true);
     setError(null);
     try {
-      const res = await loginWithEmail(email);
+      const res = await loginWithEmail(email, password);
       if (!res.ok) {
         setError(res.error ?? 'Email tidak ditemukan');
         setIsSubmitting(false);
@@ -102,7 +104,7 @@ export default function LoginPage() {
                 <CheckCircle2 className="size-4" />
                 <span>Pilih Akun Demo (1-Click Login)</span>
               </CardTitle>
-              <span className="text-muted font-mono text-[11px]">Tanpa Password</span>
+              <span className="text-muted font-mono text-[11px]">Password demo otomatis</span>
             </div>
             <CardDescription className="text-xs">
               Pilih peran di bawah ini untuk langsung mencoba alur kerja sesuai hak aksesnya:
@@ -178,8 +180,10 @@ export default function LoginPage() {
                 <Input
                   id="password"
                   type="password"
-                  defaultValue="Demo1234!"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
+                  required
                 />
               </div>
 

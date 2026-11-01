@@ -8,7 +8,9 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['tests/unit/**/*.test.ts', 'tests/integration/**/*.test.ts'],
+    include: ['tests/unit/**/*.test.ts', 'tests/integration/**/*.test.ts', 'tests/db/**/*.test.ts'],
+    // Tes DB memakai satu database bersama (DROP/CREATE schema), jadi berjalan berurutan.
+    fileParallelism: false,
     environment: 'node',
     coverage: {
       provider: 'v8',
