@@ -1,28 +1,28 @@
-/* Relife Design System — exact tokens from Sigap globals.css */
+/* Relife Design System — China Taiping (id.chinataiping.com) corporate palette */
 :root {
-  --bg: #fafaf9;
+  --bg: #f6f9fc;
   --surface: #ffffff;
-  --surface-2: #f5f5f4;
-  --border: #e7e5e4;
-  --border-strong: #d6d3d1;
-  --text: #1c1917;
-  --muted: #57534e;
-  --accent: #0f766e;
-  --accent-hover: #115e59;
+  --surface-2: #eef4f8;
+  --border: #dde6ed;
+  --border-strong: #c5d3de;
+  --text: #0f172a;
+  --muted: #475569;
+  --accent: #015e85;
+  --accent-hover: #014968;
   --accent-fg: #ffffff;
-  --accent-soft: #ccfbf1;
+  --accent-soft: #e0f2fe;
   --p1: #b91c1c;
   --p2: #c2410c;
   --p3: #854d0e;
   --p4: #475569;
-  --sla-ok: #15803d;
+  --sla-ok: #018756;
   --sla-risk: #b45309;
   --sla-breach: #b91c1c;
   --note: #fefce8;
   --note-border: #fde68a;
   --danger: #b91c1c;
-  --ring: #0f766e;
-  --shadow-pop: 0 10px 30px -10px rgb(28 25 23 / 0.18), 0 2px 6px -2px rgb(28 25 23 / 0.08);
+  --ring: #015e85;
+  --shadow-pop: 0 10px 30px -10px rgb(1 94 133 / 0.16), 0 2px 6px -2px rgb(15 23 42 / 0.08);
   --radius: 6px;
   --radius-sm: 4px;
   --radius-lg: 8px;
@@ -33,28 +33,28 @@
 }
 
 .dark {
-  --bg: #0c0d0f;
-  --surface: #15171a;
-  --surface-2: #1c1f23;
-  --border: #26292e;
-  --border-strong: #353940;
-  --text: #ededed;
-  --muted: #9ca3af;
-  --accent: #2dd4bf;
-  --accent-hover: #5eead4;
-  --accent-fg: #042f2e;
-  --accent-soft: #134e4a;
+  --bg: #091118;
+  --surface: #0f1a24;
+  --surface-2: #162432;
+  --border: #223446;
+  --border-strong: #314961;
+  --text: #f1f5f9;
+  --muted: #94a3b8;
+  --accent: #38bdf8;
+  --accent-hover: #7dd3fc;
+  --accent-fg: #041e2b;
+  --accent-soft: #0c354c;
   --p1: #f87171;
   --p2: #fb923c;
   --p3: #facc15;
   --p4: #94a3b8;
-  --sla-ok: #4ade80;
+  --sla-ok: #2dd496;
   --sla-risk: #fbbf24;
   --sla-breach: #f87171;
   --note: #2a2410;
   --note-border: #4d3f12;
   --danger: #f87171;
-  --ring: #2dd4bf;
+  --ring: #38bdf8;
   --shadow-pop: 0 10px 30px -10px rgb(0 0 0 / 0.6), 0 2px 6px -2px rgb(0 0 0 / 0.4);
   color-scheme: dark;
 }
