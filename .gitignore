@@ -29,5 +29,6 @@ backups/
 # Agent docs, design tooling and CI kept local only
 docs/
 AGENTS.md
+.agents/
 .impeccable/
 .github/
