@@ -46,7 +46,7 @@ export function baseDoc(opts: {
     <dialog id="dlg-confirm" class="modal" aria-labelledby="dlg-confirm-title" aria-describedby="dlg-confirm-msg">
       <div class="modal-box">
         <div class="modal-head">
-          <h3 id="dlg-confirm-title" class="modal-title">Konfirmasi Tindakan</h3>
+          <h2 id="dlg-confirm-title" class="modal-title">Konfirmasi Tindakan</h2>
           <p id="dlg-confirm-msg" class="modal-desc"></p>
         </div>
         <div class="modal-foot">
@@ -78,7 +78,7 @@ function commandPaletteDialog(isAgent: boolean): HtmlContent {
         />
         <button type="button" class="btn btn-ghost btn-sm" data-close-dialog aria-label="Tutup pencarian">Tutup</button>
       </div>
-      <div id="cmdk-results" class="cmdk-results">
+      <div id="cmdk-results" class="cmdk-results" aria-live="polite">
         <p class="cmdk-hint">Ketik minimal 2 karakter untuk mencari tiket</p>
       </div>
       <div class="cmdk-quick">
@@ -148,7 +148,7 @@ function topbarControls(opts: {
                   class="popover-item${unread ? ' is-unread' : ''}"
                 >
                   <div class="popover-item-row">
-                    <span>${item.title}</span>
+                    <span>${item.title}${unread ? html` <span class="sr-only">(Belum dibaca)</span>` : null}</span>
                     ${unread ? html`<span class="unread-dot" aria-hidden="true"></span>` : null}
                   </div>
                   <span class="popover-item-time">${formatRelative(item.createdAt, now)}</span>
@@ -238,7 +238,7 @@ export function portalLayout(opts: {
   const now = new Date();
   const content = html`<div class="portal-shell">
     <header class="topbar portal-topbar">
-      <div class="topbar-left">
+      <div class="portal-topbar-inner">
         <a href="/portal" class="brand">
           <span class="brand-logo">S</span>
           <span class="brand-name">Sigap</span>
@@ -252,19 +252,16 @@ export function portalLayout(opts: {
             Tiket Saya
           </a>
         </nav>
-      </div>
-      <div class="topbar-right">
-        <a href="/portal/new" class="btn btn-primary btn-sm portal-new-btn" aria-label="Buat Permintaan IT">
-          ${icon('plus', 'icon-xs')} <span>Buat Permintaan</span>
-        </a>
-        ${cmdkTrigger()}
-        ${topbarControls({
-          user: opts.user,
-          notifications: opts.notifications,
-          unreadCount: opts.unreadCount,
-          isAgent: false,
-          now,
-        })}
+        <div class="topbar-right">
+          ${cmdkTrigger()}
+          ${topbarControls({
+            user: opts.user,
+            notifications: opts.notifications,
+            unreadCount: opts.unreadCount,
+            isAgent: false,
+            now,
+          })}
+        </div>
       </div>
     </header>
 
@@ -305,20 +302,40 @@ export function agentLayout(opts: {
   const isQueue = opts.activePath === 'queue';
   const view = opts.activeView ?? 'team';
   const { queueCounts: counts } = opts;
+  const viewLabels: Readonly<Record<string, string>> = {
+    team: 'Antrean Tim IT',
+    my: 'My Tickets',
+    unassigned: 'Unassigned',
+    at_risk: 'At Risk',
+    breached: 'Breached',
+    approval: 'Persetujuan',
+    all: 'Semua Tiket',
+  };
+  const activeNavLabel =
+    opts.activePath === 'dashboard'
+      ? 'Dashboard KPI'
+      : opts.activePath === 'admin'
+        ? 'Pengaturan Admin'
+        : opts.activePath === 'notifications'
+          ? 'Notifikasi'
+          : viewLabels[view] ?? 'Queue';
+  const urgentCount = counts.breached > 0 ? counts.breached : counts.at_risk;
+  const urgentTone = counts.breached > 0 ? 'count-breach' : 'count-risk';
 
   const content = html`<div class="app-shell">
-    <aside class="sidebar">
+    <aside id="agent-sidebar" class="sidebar" aria-label="Menu utama ITSM">
       <div class="sidebar-top">
-        <a href="/queue" class="brand sidebar-brand">
-          <span class="brand-logo">S</span>
-          <span class="brand-name">Sigap</span>
-          <span class="badge badge-accent">ITSM</span>
-        </a>
+        <div class="sidebar-head">
+          <a href="/queue" class="brand sidebar-brand">
+            <span class="brand-logo">S</span>
+            <span class="brand-name">Sigap</span>
+            <span class="badge badge-accent">ITSM</span>
+          </a>
+          <button type="button" class="icon-btn mobile-only-ctrl" data-nav-close aria-label="Tutup menu">
+            ${icon('x', 'icon-sm')}
+          </button>
+        </div>
 
-      <details class="mobile-nav-details" data-mobile-nav>
-        <summary class="mobile-nav-summary">
-          ${icon('dashboard', 'icon-xs')} <span>Menu</span>
-        </summary>
         <div class="sidebar-group">
           <span class="sidebar-label">Queue Tiket</span>
           <nav class="sidebar-nav">
@@ -368,7 +385,6 @@ export function agentLayout(opts: {
             </a>
           </nav>
         </div>
-      </details>
       </div>
 
       <div class="sidebar-foot">
@@ -377,10 +393,28 @@ export function agentLayout(opts: {
         </a>
       </div>
     </aside>
+    <div class="nav-backdrop" data-nav-close aria-hidden="true"></div>
 
     <div class="main-wrap">
       <header class="topbar">
-        <div class="topbar-left">${cmdkTrigger()}</div>
+        <div class="topbar-left">
+          <button
+            type="button"
+            class="icon-btn mobile-only-ctrl mobile-drawer-btn"
+            data-nav-open
+            aria-label="Buka menu navigasi: ${activeNavLabel}"
+            aria-expanded="false"
+            aria-controls="agent-sidebar"
+          >
+            ${icon('menu', 'icon-sm')}
+            ${urgentCount > 0 ? html`<span class="notif-dot" aria-hidden="true"></span>` : null}
+          </button>
+          <a href="/queue" class="brand mobile-only-ctrl mobile-brand">
+            <span class="brand-logo">S</span>
+            <span class="mobile-header-title">${activeNavLabel}</span>
+          </a>
+          ${cmdkTrigger()}
+        </div>
         ${topbarControls({
           user: opts.user,
           notifications: opts.notifications,

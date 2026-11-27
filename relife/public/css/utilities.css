@@ -1,0 +1,21 @@
+/* Responsive Visibility Utilities (loaded last to win over component display modes) */
+.mobile-only { display: none; }
+.show-sm { display: none; }
+.show-xs { display: none; }
+
+@media (max-width: 767px) {
+  .desktop-only { display: none; }
+  .mobile-only { display: flex; flex-direction: column; gap: 10px; }
+  .hide-sm { display: none; }
+  .show-sm { display: inline; }
+}
+
+@media (max-width: 639px) {
+  .cmdk-trigger .hide-sm,
+  .cmdk-trigger .show-sm { display: none; }
+}
+
+@media (max-width: 539px) {
+  .hide-xs { display: none; }
+  .show-xs { display: inline; }
+}

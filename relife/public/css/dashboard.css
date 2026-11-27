@@ -1,0 +1,110 @@
+/* Dashboard KPI, Interactive Charts & Agent Performance Table */
+.range-pills { display: inline-flex; gap: 4px; padding: 3px; border-radius: var(--radius-lg); border: 1px solid var(--border); background: var(--surface); }
+.range-pill { padding: 4px 10px; border-radius: var(--radius); font-size: 12px; color: var(--muted); font-weight: 500; transition: background 120ms ease, color 120ms ease; }
+.range-pill:hover { background: var(--surface-2); color: var(--text); }
+.range-pill.is-active { background: var(--accent); color: var(--accent-fg); font-weight: 600; }
+
+.chart-stage { position: relative; }
+.chart-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background:
+    linear-gradient(to right, var(--surface) 30%, transparent) left center / 24px 100% no-repeat local,
+    linear-gradient(to left, var(--surface) 30%, transparent) right center / 24px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, color-mix(in srgb, var(--text) 14%, transparent), transparent) left center / 10px 88% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, color-mix(in srgb, var(--text) 14%, transparent), transparent) right center / 10px 88% no-repeat scroll;
+}
+.chart-svg { width: 100%; height: auto; max-height: 440px; display: block; }
+.chart-svg-lg { max-height: 460px; }
+.chart-grid { stroke: var(--border); stroke-dasharray: 3 3; }
+.chart-axis { fill: var(--muted); font-size: 13.5px; }
+.chart-axis-bold { fill: var(--text); font-size: 13.5px; font-weight: 600; }
+.chart-track { fill: var(--surface-2); }
+.chart-val { fill: var(--text); font-size: 13px; font-weight: 600; }
+.chart-guide { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0; transition: opacity 120ms ease; pointer-events: none; }
+.chart-dot { transform-box: fill-box; transform-origin: center; transition: transform 120ms ease; pointer-events: none; }
+.chart-group:hover .chart-guide,
+.chart-group.is-active .chart-guide { opacity: 0.7; }
+.chart-group:hover .chart-dot,
+.chart-group.is-active .chart-dot { transform: scale(1.3); }
+.chart-hit { fill: transparent; cursor: pointer; touch-action: manipulation; }
+.chart-hit:hover,
+.chart-hit.is-active { fill: color-mix(in srgb, var(--accent) 7%, transparent); }
+.chart-hit:focus-visible { fill: color-mix(in srgb, var(--accent) 10%, transparent); outline: 2px solid var(--ring); }
+.chart-tooltip {
+  position: absolute;
+  z-index: 15;
+  pointer-events: none;
+  min-width: 152px;
+  max-width: 240px;
+  padding: 8px 10px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-pop);
+  font-size: 12px;
+  line-height: 16px;
+}
+.chart-tip-title { font-weight: 700; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+.chart-tip-rows { display: flex; flex-direction: column; gap: 3px; }
+.chart-tip-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.chart-tip-label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.chart-tip-val { font-family: var(--font-mono); font-weight: 700; font-variant-numeric: tabular-nums; }
+.chart-tip-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.chart-tip-dot.tone-accent { background: var(--accent); }
+.chart-tip-dot.tone-ok { background: var(--sla-ok); }
+.chart-tip-dot.tone-p1 { background: var(--p1); }
+.chart-tip-dot.tone-p2 { background: var(--p2); }
+.chart-tip-dot.tone-p3 { background: var(--p3); }
+.chart-tip-dot.tone-p4 { background: var(--p4); }
+.chart-tip-dot.tone-muted { background: var(--muted); }
+.chart-legend { display: flex; gap: 14px; flex-wrap: wrap; padding-top: 8px; font-size: 12px; color: var(--muted); }
+.legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.legend-dot-accent { background: var(--accent); }
+.legend-dot-ok { background: var(--sla-ok); }
+.legend-dot-p1 { background: var(--p1); }
+.legend-dot-p2 { background: var(--p2); }
+.legend-dot-p3 { background: var(--p3); }
+.legend-dot-p4 { background: var(--p4); }
+
+.rank-list { display: flex; flex-direction: column; gap: 6px; }
+.rank-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-radius: var(--radius); font-size: 13px; }
+.rank-row:hover { background: var(--surface-2); }
+.rank-count { font-size: 12px; color: var(--muted); }
+
+.table-scroll {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  background:
+    linear-gradient(to right, var(--surface) 30%, transparent) left center / 24px 100% no-repeat local,
+    linear-gradient(to left, var(--surface) 30%, transparent) right center / 24px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, color-mix(in srgb, var(--text) 14%, transparent), transparent) left center / 10px 88% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, color-mix(in srgb, var(--text) 14%, transparent), transparent) right center / 10px 88% no-repeat scroll;
+}
+.max-h-64 { max-height: 260px; }
+.max-h-lg { max-height: 520px; }
+.agent-perf-table { min-width: 520px; }
+
+@media (max-width: 767px), (pointer: coarse) {
+  .range-pill { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; }
+}
+@media (max-width: 639px) {
+  .chart-scroll > .chart-svg-lg { min-width: 560px; }
+  .chart-scroll-md > .chart-svg { min-width: 420px; }
+}
+@media (max-width: 559px) {
+  .agent-perf-table { min-width: 0; width: 100%; }
+  .agent-perf-table, .agent-perf-table tbody { display: block; width: 100%; }
+  .agent-perf-table thead { display: none; }
+  .agent-perf-table tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .agent-perf-table tbody tr:last-child { border-bottom: 0; }
+  .agent-perf-table td { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 0; border: 0; text-align: left; }
+  .agent-perf-table .agent-perf-name { grid-column: 1 / -1; font-size: 14px; }
+  .agent-perf-table td[data-label]::before { content: attr(data-label); font-size: 11px; line-height: 14px; color: var(--muted); font-weight: 500; }
+}
+@media (max-width: 479px) {
+  .range-pills { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; text-align: center; }
+}

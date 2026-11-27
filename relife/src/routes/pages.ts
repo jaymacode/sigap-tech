@@ -223,7 +223,7 @@ pages.get('/queue', (c) => {
       notifications: listUserNotifications(auth.id, 10),
       unreadCount: unreadNotificationCount(auth.id),
       queueCounts: result.counts,
-      body: queuePage(result, filters, assignees, calendars, auth.id),
+      body: queuePage(result, filters, assignees, calendars, auth.id, auth.role),
     }),
   );
 });

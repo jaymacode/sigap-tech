@@ -1,7 +1,8 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'bun:test';
 import { createApp } from '@/index';
 import { setImsProvider, parseRoleMap, provisionUser, type ImsProfile } from '@/server/auth/ims';
-import { signSessionValue } from '@/server/auth/session';
+import { authMode } from '@/server/auth/config';
+import { signSessionValue, verifySessionValue } from '@/server/auth/session';
 import { bootstrapDatabase } from '@/server/db/bootstrap';
 import { closeSqlite, getSqlite } from '@/server/db/sqlite';
 import { getStore, installDatabaseStore } from '@/server/mock/db';
@@ -49,6 +50,7 @@ describe('auth: sesi bertanda tangan', () => {
     delete process.env.AUTH_MODE;
     delete process.env.SESSION_SECRET;
     delete process.env.IMS_ROLE_MAP;
+    process.env.NODE_ENV = 'test';
     setImsProvider(null);
   });
 
@@ -84,6 +86,15 @@ describe('auth: sesi bertanda tangan', () => {
     } finally {
       user.isActive = true;
     }
+  });
+
+  it('menolak cookie sesi yang sudah kedaluwarsa dan default ims di produksi', () => {
+    const token = signSessionValue('usr-user', 1_000);
+    expect(verifySessionValue(token, 1_000 + 60)).toBe('usr-user');
+    expect(verifySessionValue(token, 1_000 + 7 * 24 * 60 * 60 + 1)).toBeNull();
+
+    process.env.NODE_ENV = 'production';
+    expect(authMode()).toBe('ims');
   });
 
   it('AUTH_MODE=ims mewajibkan SESSION_SECRET', () => {

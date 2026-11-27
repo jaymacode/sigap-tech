@@ -62,16 +62,21 @@ const fileTransport: MailTransport = {
 let smtp: Promise<import('nodemailer').Transporter> | null = null;
 const smtpTransport: MailTransport = {
   async send(m) {
-    smtp ??= import('nodemailer').then((nm) =>
-      nm.createTransport({
-        host: process.env.SMTP_HOST,
-        port: Number(process.env.SMTP_PORT ?? 587),
-        secure: (process.env.SMTP_SECURE ?? 'false').toLowerCase() === 'true',
-        auth: process.env.SMTP_USER
-          ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS ?? '' }
-          : undefined,
-      }),
-    );
+    smtp ??= import('nodemailer')
+      .then((nm) =>
+        nm.createTransport({
+          host: process.env.SMTP_HOST,
+          port: Number(process.env.SMTP_PORT ?? 587),
+          secure: (process.env.SMTP_SECURE ?? 'false').toLowerCase() === 'true',
+          auth: process.env.SMTP_USER
+            ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS ?? '' }
+            : undefined,
+        }),
+      )
+      .catch((err) => {
+        smtp = null;
+        throw err;
+      });
     const t = await smtp;
     await t.sendMail({
       from: from(),

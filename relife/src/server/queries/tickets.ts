@@ -644,7 +644,7 @@ export function assigneeOptions(store: Store): AssigneeOption[] {
   for (const team of store.teams.values()) {
     for (const id of new Set([team.leadId, ...team.memberIds])) {
       const u = id ? store.users.get(id) : undefined;
-      if (!u?.isActive) continue;
+      if (!u?.isActive || u.role === 'requester') continue;
       options.push({
         id: u.id,
         name: u.name,

@@ -6,9 +6,6 @@ import { getPg, hydrateStorePg, persistDiffPg } from '@/server/db/postgres';
 import { getSqlite, isDatabaseEnabled } from '@/server/db/sqlite';
 import { seedStore } from './seed';
 import { createEmptyStore, type Store } from './store';
-import { runSlaTick } from './ticket-engine';
-
-const TICK_INTERVAL_MS = 60_000;
 
 const globalForStore = globalThis as typeof globalThis & {
   __sigapStore?: Store;
@@ -38,7 +35,7 @@ async function rehydrate(): Promise<void> {
  * Returns the active Store.
  * - `memory-only`: auto-seeds in memory on first access.
  * - SQLite mode: requires `initDatabaseStore()` at boot, except in tests or `:memory:` where it
- *   auto-bootstraps synchronously. Runs the 60s SLA tick if due.
+ *   auto-bootstraps synchronously.
  */
 export function getStore(now: Date = systemClock()): Store {
   let store = globalForStore.__sigapStore;
@@ -56,15 +53,6 @@ export function getStore(now: Date = systemClock()): Store {
       store = outcome.store;
     } else {
       throw new Error('Database store belum siap: hydrate dari database belum selesai');
-    }
-  }
-  const last = store.workerLastTick?.getTime() ?? 0;
-  if (now.getTime() - last >= TICK_INTERVAL_MS) {
-    runSlaTick(store, now);
-    if (isDatabaseEnabled()) {
-      persistStore().catch((err: unknown) => {
-        console.error('[db] gagal menyimpan SLA tick', err);
-      });
     }
   }
   return store;

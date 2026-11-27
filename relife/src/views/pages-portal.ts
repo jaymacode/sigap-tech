@@ -385,10 +385,18 @@ export function portalHomePage(opts: {
             )}
           </div>
         </section>`
-      : null}
+      : html`<section class="card onboarding-card">
+          <div class="card-body row-between-wrap">
+            <div class="stack-xs">
+              <h2 class="card-title">Baru pertama mengajukan layanan?</h2>
+              <p class="text-xs text-muted">Pilih salah satu layanan di atas, isi formulir singkat, lalu pantau progres dan persetujuan atasan lewat menu <strong>Tiket Saya</strong>.</p>
+            </div>
+            <a href="/portal/new" class="btn btn-secondary btn-sm">Mulai Buat Permintaan</a>
+          </div>
+        </section>`}
 
     <p class="portal-process-note text-xs text-muted">
-      <strong>Alur layanan:</strong> 1. Isi formulir → 2. Persetujuan atasan (HOD) → 3. Diproses tim IT → 4. Konfirmasi selesai.
+      <strong>Alur layanan:</strong> 1. Isi formulir → 2. Persetujuan atasan langsung (HOD) → 3. Diproses tim IT → 4. Konfirmasi selesai.
     </p>
   </div>`;
 }
@@ -607,8 +615,9 @@ export function portalNewTicketPage(opts: {
                     <span class="choice-card-head">
                       <strong class="choice-card-title">${fm.label}</strong>
                       ${meta.tag ? html`<span class="badge badge-incident">${meta.tag}</span>` : null}
+                      <span class="rf-tile-check rf-choice-check" aria-hidden="true">${icon('check', 'icon-xs')}</span>
                     </span>
-                    <span class="rf-type-id">${typeOpt}</span>
+                    <span class="rf-type-id sr-only">${typeOpt}</span>
                     <span class="choice-card-desc">${meta.desc}</span>
                   </label>`;
                 })}
@@ -640,7 +649,10 @@ export function portalNewTicketPage(opts: {
                       data-urgency-label="${u.label}"
                       required${flag('checked', u.value === 'medium')}
                     />
-                    <strong class="choice-card-title"><span class="rf-urg-dot" aria-hidden="true"></span>${u.label}</strong>
+                    <span class="choice-card-head">
+                      <strong class="choice-card-title"><span class="rf-urg-dot" aria-hidden="true"></span>${u.label}</strong>
+                      <span class="rf-tile-check rf-choice-check" aria-hidden="true">${icon('check', 'icon-xs')}</span>
+                    </span>
                     <span class="choice-card-desc">${u.desc}</span>
                   </label>`,
                 )}
@@ -722,7 +734,7 @@ export function portalNewTicketPage(opts: {
                 <label for="description" class="label">
                   Deskripsi masalah / kebutuhan <span class="req">*</span>
                 </label>
-                <span class="text-xs text-muted tabular" data-char-count="description" aria-live="polite">0 karakter (min. 10)</span>
+                <span class="text-xs text-muted tabular" data-char-count="description">0 karakter (min. 10)</span>
               </div>
               <textarea
                 id="description"
@@ -741,8 +753,8 @@ export function portalNewTicketPage(opts: {
             </div>
 
             <div class="field" data-att-picker>
-              <label for="att-file" class="label">Lampiran <span class="text-muted">(opsional)</span></label>
-              <label for="att-file" class="dropzone">
+              <span class="label" id="att-file-label">Lampiran <span class="text-muted">(opsional)</span></span>
+              <label for="att-file" class="dropzone" aria-labelledby="att-file-label">
                 <input
                   id="att-file"
                   type="file"
@@ -766,17 +778,17 @@ export function portalNewTicketPage(opts: {
         </section>
 
         <section class="card rf-section" data-rf-section="4" aria-labelledby="rf-s4-title">
-          ${rfStepHead(4, 'Persetujuan', 'Konfirmasi pemohon dan persetujuan atasan (HOD) sebagai pengganti formulir kertas.')}
+          ${rfStepHead(4, 'Persetujuan', 'Konfirmasi pemohon dan persetujuan atasan langsung (HOD) sebagai pengganti formulir kertas.')}
           <div class="rf-section-body stack-md">
             <div class="rf-note">
               ${icon('shield', 'icon-sm')}
               <p>
-                Atasan (HOD) Anda akan menerima notifikasi persetujuan. Tim IT mulai memproses setelah atasan menyetujui permintaan ini.
+                Atasan langsung (HOD) Anda akan menerima notifikasi persetujuan. Tim IT mulai memproses setelah atasan menyetujui permintaan ini.
               </p>
             </div>
             <div class="form-grid-2">
               <div class="field">
-                <label for="fd-hod-name" class="label">Nama atasan (HOD) <span class="req">*</span></label>
+                <label for="fd-hod-name" class="label">Nama atasan langsung (HOD) <span class="req">*</span></label>
                 <input
                   id="fd-hod-name"
                   name="formData.hod_name"
@@ -789,7 +801,7 @@ export function portalNewTicketPage(opts: {
                 />
               </div>
               <div class="field">
-                <label for="fd-hod-email" class="label">Email atasan (HOD) <span class="text-muted">(opsional)</span></label>
+                <label for="fd-hod-email" class="label">Email atasan langsung (HOD) <span class="text-muted">(opsional)</span></label>
                 <input
                   id="fd-hod-email"
                   name="formData.hod_email"
@@ -865,10 +877,13 @@ export function portalNewTicketPage(opts: {
         </div>
       </aside>
       <div class="rf-mobile-bar" aria-label="Status pengisian formulir">
-        <span class="text-xs font-bold tabular" data-rf-progress-text>0 dari 4 bagian lengkap</span>
-        <button type="submit" class="btn btn-primary">
-          ${icon('send', 'icon-xs')} <span>Kirim Permintaan</span>
-        </button>
+        <div class="form-error rf-mobile-err" data-rf-mobile-err role="alert" hidden></div>
+        <div class="rf-mobile-bar-row">
+          <span class="text-xs font-bold tabular" data-rf-progress-text>0 dari 4 bagian lengkap</span>
+          <button type="submit" class="btn btn-primary">
+            ${icon('send', 'icon-xs')} <span>Kirim Permintaan</span>
+          </button>
+        </div>
       </div>
     </form>
   </div>`;
@@ -905,7 +920,15 @@ export function portalTicketsPage(
     );
   }
 
-  return html`<div class="stack-md">
+  const tabUrl = (status?: string) => {
+    const sp = new URLSearchParams();
+    if (status) sp.set('status', status);
+    if (searchQuery?.trim()) sp.set('q', searchQuery.trim());
+    const qs = sp.toString();
+    return qs ? `/portal/tickets?${qs}` : '/portal/tickets';
+  };
+
+  return html`<div class="stack">
     <div class="row-between-wrap">
       <div>
         <h1 class="page-h1">Daftar Tiket Anda</h1>
@@ -919,17 +942,17 @@ export function portalTicketsPage(
     </div>
 
     <div class="portal-tickets-toolbar">
-      <div class="tab-bar">
-        <a href="/portal/tickets" class="tab${!statusFilter ? ' is-active' : ''}">
-          <span>Semua Tiket</span>
+      <div class="tab-bar" role="navigation" aria-label="Filter status tiket">
+        <a href="${tabUrl()}" class="tab${!statusFilter ? ' is-active' : ''}">
+          <span>Semua</span>
           <span class="tab-count tabular">${tickets.length}</span>
         </a>
-        <a href="/portal/tickets?status=active" class="tab${statusFilter === 'active' ? ' is-active' : ''}">
-          <span>Sedang Diproses</span>
+        <a href="${tabUrl('active')}" class="tab${statusFilter === 'active' ? ' is-active' : ''}">
+          <span>Diproses</span>
           <span class="tab-count tabular">${activeCount}</span>
         </a>
-        <a href="/portal/tickets?status=resolved" class="tab${statusFilter === 'resolved' ? ' is-active' : ''}">
-          <span>Selesai &amp; Ditutup</span>
+        <a href="${tabUrl('resolved')}" class="tab${statusFilter === 'resolved' ? ' is-active' : ''}">
+          <span>Selesai</span>
           <span class="tab-count tabular">${resolvedCount}</span>
         </a>
       </div>
@@ -985,7 +1008,9 @@ export function portalTicketsPage(
                       : null}
                 </div>
                 <h2 class="list-row-title">${t.title}</h2>
-                <span class="portal-status-line text-xs">${statusHint(t.status)}</span>
+                ${t.status === 'pending' || t.status === 'resolved'
+                  ? null
+                  : html`<span class="portal-status-line text-xs">${statusHint(t.status)}</span>`}
                 <span class="text-muted text-xs">
                   ${t.assignee ? `Ditangani ${t.assignee.name}` : 'Menunggu penugasan tim'} · Dibuat
                   ${formatDateTime(t.createdAt)} (${formatRelative(t.createdAt, now)})
@@ -1087,7 +1112,7 @@ export function portalTicketDetailPage(
               const isCurrent = idx === currentStep && !isClosed;
               const isPaused = isCurrent && detail.status === 'pending';
               return html`<li
-                class="stepper-item${isDone ? ' is-done' : ''}${isCurrent ? ' is-current' : ''}${isPaused ? ' is-paused' : ''}"
+                class="stepper-item${isDone ? ' is-done' : ''}${isCurrent ? ' is-current' : ''}${isPaused ? ' is-paused' : ''}"${isCurrent ? ' aria-current="step"' : ''}
               >
                 <span class="stepper-dot" aria-hidden="true">
                   ${isDone ? icon('check', 'icon-xs') : idx + 1}
@@ -1252,7 +1277,7 @@ export function portalTicketDetailPage(
           ? html`<div class="card">
               <div class="card-header">
                 <h2 class="card-title text-accent row-gap-sm">
-                  ${icon('star', 'icon-sm')} <span>Survei Kepuasan Layanan (CSAT)</span>
+                  ${icon('star', 'icon-sm')} <span>Survei Kepuasan Layanan</span>
                 </h2>
                 <p class="card-desc">
                   ${detail.csat
@@ -1386,10 +1411,6 @@ export function portalTicketDetailPage(
             <div class="row-between">
               <span class="text-muted">Nomor Tiket</span>
               <strong class="mono">${detail.number}</strong>
-            </div>
-            <div class="row-between">
-              <span class="text-muted">Status</span>
-              ${statusPill(detail.status, 'requester')}
             </div>
             <div class="row-between">
               <span class="text-muted">Layanan</span>

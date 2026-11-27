@@ -54,6 +54,7 @@ export function parseHolidayLines(text: string, existingDates: Iterable<string>)
     let error: string | null = null;
     if (!m) error = 'Format harus "YYYY-MM-DD Nama"';
     else if (!isValidDateKey(date)) error = 'Tanggal tidak valid';
+    else if (name.length < 2) error = 'Nama minimal 2 karakter';
     else if (name.length > 80) error = 'Nama maksimal 80 karakter';
     else if (seen.has(date)) error = 'Tanggal sudah terdaftar';
     if (!error) seen.add(date);

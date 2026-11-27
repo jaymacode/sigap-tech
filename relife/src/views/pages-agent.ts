@@ -1,4 +1,5 @@
 import { html } from 'hono/html';
+import type { Role } from '@/domain/types';
 import { holidayTypeOf } from '@/routes/admin-calendar';
 import { systemClock } from '@/server/clock';
 import { formatDateTime, localDateKey, formatDuration, formatRelative, formatSlaTarget } from '@/lib/format';
@@ -54,12 +55,44 @@ function queuePageUrl(filters: QueueFilters, page: number): string {
   if (filters.type) sp.set('type', filters.type);
   if (filters.age) sp.set('age', filters.age);
   if (filters.sla) sp.set('sla', filters.sla);
+  if (filters.slaKind) sp.set('slaKind', filters.slaKind);
   if (filters.assignee) sp.set('assignee', filters.assignee);
+  if (filters.team) sp.set('team', filters.team);
   if (filters.category) sp.set('category', filters.category);
+  if (filters.from) sp.set('from', filters.from);
+  if (filters.to) sp.set('to', filters.to);
   if (filters.sort !== 'sla') sp.set('sort', filters.sort);
   if (filters.dir !== 'asc') sp.set('dir', filters.dir);
   if (page > 1) sp.set('page', String(page));
   return `/queue?${sp.toString()}`;
+}
+
+function hiddenQueueInputs(
+  filters: QueueFilters,
+  exclude: ReadonlyArray<keyof QueueFilters>,
+): HtmlContent {
+  const statusVal =
+    typeof filters.status === 'string' ? filters.status : (filters.status?.join(',') ?? '');
+  const pairs: Array<[keyof QueueFilters, string | undefined]> = [
+    ['view', filters.view],
+    ['q', filters.q],
+    ['priority', filters.priority?.join(',') || undefined],
+    ['assignee', filters.assignee],
+    ['status', statusVal || undefined],
+    ['type', filters.type],
+    ['age', filters.age],
+    ['sla', filters.sla],
+    ['slaKind', filters.slaKind],
+    ['team', filters.team],
+    ['category', filters.category],
+    ['from', filters.from],
+    ['to', filters.to],
+    ['sort', filters.sort !== 'sla' ? filters.sort : undefined],
+    ['dir', filters.dir !== 'asc' ? filters.dir : undefined],
+  ];
+  return html`${pairs
+    .filter(([k, v]) => v && !exclude.includes(k))
+    .map(([k, v]) => html`<input type="hidden" name="${k}" value="${v}" />`)}`;
 }
 
 function buildActiveFilterChips(
@@ -105,13 +138,20 @@ export function queuePage(
   assignees: AssigneeOption[],
   calendars: CalendarMap,
   currentUserId?: string,
+  currentUserRole?: Role,
 ): HtmlContent {
   const now = new Date();
   const currentView = filters.view;
   const statusVal =
     typeof filters.status === 'string' ? filters.status : (filters.status?.join(',') ?? '');
-  const prioVal = filters.priority?.[0] ?? '';
+  const prioVal = filters.priority?.length === 1 ? filters.priority[0] : '';
   const activeChips = buildActiveFilterChips(filters, assignees);
+  const bulkAssignees =
+    currentUserRole === 'agent' && currentUserId
+      ? assignees.filter((a) => a.id === currentUserId)
+      : assignees;
+
+  const extraFilterCount = [statusVal, filters.type, filters.age, filters.sla, filters.sort !== 'sla' ? filters.sort : ''].filter(Boolean).length;
 
   return html`<div class="page-pad stack-md">
     <div>
@@ -122,16 +162,7 @@ export function queuePage(
     <div class="card toolbar">
       <div class="toolbar-filters">
         <form method="get" action="/queue" class="search-form">
-          <input type="hidden" name="view" value="${currentView}" />
-          ${prioVal ? html`<input type="hidden" name="priority" value="${prioVal}" />` : null}
-          ${filters.assignee ? html`<input type="hidden" name="assignee" value="${filters.assignee}" />` : null}
-          ${statusVal ? html`<input type="hidden" name="status" value="${statusVal}" />` : null}
-          ${filters.type ? html`<input type="hidden" name="type" value="${filters.type}" />` : null}
-          ${filters.age ? html`<input type="hidden" name="age" value="${filters.age}" />` : null}
-          ${filters.sla ? html`<input type="hidden" name="sla" value="${filters.sla}" />` : null}
-          ${filters.category ? html`<input type="hidden" name="category" value="${filters.category}" />` : null}
-          ${filters.sort !== 'sla' ? html`<input type="hidden" name="sort" value="${filters.sort}" />` : null}
-          ${filters.dir !== 'asc' ? html`<input type="hidden" name="dir" value="${filters.dir}" />` : null}
+          ${hiddenQueueInputs(filters, ['q'])}
           <div class="search-wrap">
             ${icon('search', 'icon-xs search-icon')}
             <input
@@ -164,70 +195,75 @@ export function queuePage(
             </option>`,
           )}
         </select>
+      </div>
 
+      <div class="toolbar-bottom">
         <details class="popover filter-popover">
-          <summary class="btn btn-secondary btn-sm">Filter Lainnya</summary>
+          <summary class="btn btn-secondary btn-sm filter-btn">
+            ${icon('sliders', 'icon-xs')}
+            <span>Filter</span>
+            ${extraFilterCount > 0 ? html`<span class="badge badge-accent">${extraFilterCount}</span>` : null}
+          </summary>
           <form method="get" action="/queue" class="popover-panel filter-panel">
-            <input type="hidden" name="view" value="${currentView}" />
-            ${filters.q ? html`<input type="hidden" name="q" value="${filters.q}" />` : null}
-            ${prioVal ? html`<input type="hidden" name="priority" value="${prioVal}" />` : null}
-            ${filters.assignee ? html`<input type="hidden" name="assignee" value="${filters.assignee}" />` : null}
+            ${hiddenQueueInputs(filters, ['status', 'type', 'age', 'sla', 'sort'])}
             <div class="popover-head">
               <strong>Filter &amp; Urutkan</strong>
               <button type="button" class="btn btn-ghost btn-sm" data-close-popover>Tutup</button>
             </div>
-            <div class="field">
-              <label for="qf-status" class="label">Status</label>
-              <select id="qf-status" name="status" class="select select-sm">
-                <option value=""${flag('selected', statusVal === '')}>Status: Semua</option>
-                <option value="active"${flag('selected', statusVal === 'active')}>Semua Aktif</option>
-                <option value="new"${flag('selected', statusVal === 'new')}>New</option>
-                <option value="assigned"${flag('selected', statusVal === 'assigned')}>Assigned</option>
-                <option value="in_progress"${flag('selected', statusVal === 'in_progress')}>In Progress</option>
-                <option value="pending"${flag('selected', statusVal === 'pending')}>Pending</option>
-                <option value="resolved"${flag('selected', statusVal === 'resolved')}>Resolved</option>
-                <option value="closed"${flag('selected', statusVal === 'closed')}>Closed</option>
-                <option value="cancelled"${flag('selected', statusVal === 'cancelled')}>Cancelled</option>
-              </select>
-            </div>
+            <div class="filter-grid">
+              <div class="field">
+                <label for="qf-status" class="label">Status</label>
+                <select id="qf-status" name="status" class="select select-sm">
+                  <option value=""${flag('selected', statusVal === '')}>Status: Semua</option>
+                  <option value="active"${flag('selected', statusVal === 'active')}>Semua Aktif</option>
+                  <option value="new"${flag('selected', statusVal === 'new')}>New</option>
+                  <option value="assigned"${flag('selected', statusVal === 'assigned')}>Assigned</option>
+                  <option value="in_progress"${flag('selected', statusVal === 'in_progress')}>In Progress</option>
+                  <option value="pending"${flag('selected', statusVal === 'pending')}>Pending</option>
+                  <option value="resolved"${flag('selected', statusVal === 'resolved')}>Resolved</option>
+                  <option value="closed"${flag('selected', statusVal === 'closed')}>Closed</option>
+                  <option value="cancelled"${flag('selected', statusVal === 'cancelled')}>Cancelled</option>
+                </select>
+              </div>
 
-            <div class="field">
-              <label for="qf-type" class="label">Tipe Tiket</label>
-              <select id="qf-type" name="type" class="select select-sm">
-                <option value=""${flag('selected', !filters.type)}>Tipe: Semua</option>
-                <option value="incident"${flag('selected', filters.type === 'incident')}>Incident</option>
-                <option value="service_request"${flag('selected', filters.type === 'service_request')}>Request</option>
-              </select>
-            </div>
+              <div class="field">
+                <label for="qf-type" class="label">Tipe Tiket</label>
+                <select id="qf-type" name="type" class="select select-sm">
+                  <option value=""${flag('selected', !filters.type)}>Tipe: Semua</option>
+                  <option value="incident"${flag('selected', filters.type === 'incident')}>Incident</option>
+                  <option value="service_request"${flag('selected', filters.type === 'service_request')}>Request</option>
+                </select>
+              </div>
 
-            <div class="field">
-              <label for="qf-age" class="label">Umur Tiket</label>
-              <select id="qf-age" name="age" class="select select-sm">
-                <option value=""${flag('selected', !filters.age)}>Umur: Semua</option>
-                <option value="lt1"${flag('selected', filters.age === 'lt1')}>&lt; 1 hari kerja</option>
-                <option value="1to3"${flag('selected', filters.age === '1to3')}>1–3 hari kerja</option>
-                <option value="3to7"${flag('selected', filters.age === '3to7')}>3–7 hari kerja</option>
-                <option value="gt7"${flag('selected', filters.age === 'gt7')}>&gt; 7 hari kerja</option>
-              </select>
-            </div>
+              <div class="field">
+                <label for="qf-age" class="label">Umur Tiket</label>
+                <select id="qf-age" name="age" class="select select-sm">
+                  <option value=""${flag('selected', !filters.age)}>Umur: Semua</option>
+                  <option value="lt1"${flag('selected', filters.age === 'lt1')}>&lt; 1 hari kerja</option>
+                  <option value="1to3"${flag('selected', filters.age === '1to3')}>1–3 hari kerja</option>
+                  <option value="3to7"${flag('selected', filters.age === '3to7')}>3–7 hari kerja</option>
+                  <option value="gt7"${flag('selected', filters.age === 'gt7')}>&gt; 7 hari kerja</option>
+                </select>
+              </div>
 
-            <div class="field">
-              <label for="qf-sla" class="label">Status SLA</label>
-              <select id="qf-sla" name="sla" class="select select-sm">
-                <option value=""${flag('selected', !filters.sla)}>SLA: Semua</option>
-                <option value="met"${flag('selected', filters.sla === 'met')}>SLA Terpenuhi</option>
-                <option value="breached"${flag('selected', filters.sla === 'breached')}>SLA Breached</option>
-              </select>
-            </div>
+              <div class="field">
+                <label for="qf-sla" class="label">Status SLA</label>
+                <select id="qf-sla" name="sla" class="select select-sm">
+                  <option value=""${flag('selected', !filters.sla)}>SLA: Semua</option>
+                  <option value="met"${flag('selected', filters.sla === 'met')}>SLA Terpenuhi</option>
+                  <option value="breached"${flag('selected', filters.sla === 'breached')}>SLA Breached</option>
+                </select>
+              </div>
 
-            <div class="field">
-              <label for="qf-sort" class="label">Urutkan</label>
-              <select id="qf-sort" name="sort" class="select select-sm">
-                <option value="sla"${flag('selected', filters.sort === 'sla')}>Urut: SLA Terdekat</option>
-                <option value="priority"${flag('selected', filters.sort === 'priority')}>Urut: Prioritas</option>
-                <option value="created"${flag('selected', filters.sort === 'created')}>Urut: Dibuat</option>
-                <option value="updated"${flag('selected', filters.sort === 'updated')}>Urut: Diperbarui</option>
-              </select>
+              <div class="field span-full">
+                <label for="qf-sort" class="label">Urutkan</label>
+                <select id="qf-sort" name="sort" class="select select-sm">
+                  <option value="sla"${flag('selected', filters.sort === 'sla')}>Urut: SLA Terdekat</option>
+                  <option value="priority"${flag('selected', filters.sort === 'priority')}>Urut: Prioritas</option>
+                  <option value="created"${flag('selected', filters.sort === 'created')}>Urut: Dibuat</option>
+                  <option value="updated"${flag('selected', filters.sort === 'updated')}>Urut: Diperbarui</option>
+                </select>
+              </div>
             </div>
 
             <div class="row-gap-sm">
@@ -236,13 +272,13 @@ export function queuePage(
             </div>
           </form>
         </details>
-      </div>
 
-      <div class="toolbar-meta">
-        <button type="button" id="queue-refresh" class="icon-btn" title="Muat ulang data (Auto 30d)" aria-label="Muat ulang antrean tiket">
-          ${icon('refresh', 'icon-xs')}
-        </button>
-        <span class="mono text-xs text-muted">Total: <strong>${queueResult.total}</strong></span>
+        <div class="toolbar-meta">
+          <button type="button" id="queue-refresh" class="icon-btn" title="Muat ulang data (otomatis tiap 30 detik)" aria-label="Muat ulang antrean tiket">
+            ${icon('refresh', 'icon-xs')}
+          </button>
+          <span class="mono text-xs text-muted">Total: <strong>${queueResult.total}</strong></span>
+        </div>
       </div>
     </div>
 
@@ -260,13 +296,13 @@ export function queuePage(
 
     <div id="bulk-bar" class="bulk-bar" hidden>
       <div class="row-gap-sm">
-        <span id="bulk-count" class="mono font-bold text-accent">0 tiket terpilih</span>
+        <span id="bulk-count" class="mono font-bold text-accent" aria-live="polite">0 tiket terpilih</span>
       </div>
       <div class="row-gap-sm">
         <label for="bulk-assignee" class="sr-only">Pilih staff tujuan penugasan massal</label>
         <select id="bulk-assignee" class="select select-sm">
           <option value="">-- Tugaskan Massal ke Staff --</option>
-          ${assignees.map(
+          ${bulkAssignees.map(
             (a) => html`<option value="${a.id}">
               ${a.name} · ${a.activeLoad} tiket aktif
             </option>`,
@@ -278,11 +314,12 @@ export function queuePage(
       </div>
     </div>
 
+    <div id="queue-results" class="stack-md">
     ${queueResult.items.length === 0
       ? emptyState(
           'Tidak ada tiket di queue ini',
           'Semua tiket pada filter ini telah terselesaikan atau tidak ada tiket yang cocok.',
-          html`<a href="/queue?view=team" class="btn btn-secondary btn-sm">Reset ke Antrean Tim IT</a>`,
+          html`<a href="/queue?view=${currentView}" class="btn btn-secondary btn-sm">${currentView === 'team' ? 'Reset ke Antrean Tim IT' : 'Reset Filter Queue'}</a>`,
         )
       : html`<div class="card table-wrap desktop-only">
             <table class="table queue-table">
@@ -352,11 +389,16 @@ export function queuePage(
               const pSla = primarySla(t);
               const cal = calendars[pSla.calendarId];
               return html`<div class="card mobile-card">
-                <a href="/tickets/${t.number}" class="mobile-card-link">
-                  <div class="row-between">
-                    <span class="mono text-accent font-bold text-xs">${t.number}</span>
-                    <div class="row-gap-xs">${priorityBadge(t.priority)}${statusPill(t.status, 'agent')}</div>
+                <div class="mobile-card-top">
+                  <div class="row-gap-xs">
+                    <label class="mobile-card-check">
+                      <input type="checkbox" data-select-id="${t.id}" aria-label="Pilih tiket ${t.number}" />
+                    </label>
+                    <a href="/tickets/${t.number}" class="mono text-accent font-bold text-xs">${t.number}</a>
                   </div>
+                  <div class="row-gap-xs wrap">${priorityBadge(t.priority)}${statusPill(t.status, 'agent')}</div>
+                </div>
+                <a href="/tickets/${t.number}" class="mobile-card-link">
                   <h2 class="mobile-card-title">${t.title}</h2>
                   <span class="text-xs text-muted">${t.category} · Pemohon: ${t.requester.name}</span>
                 </a>
@@ -381,7 +423,7 @@ export function queuePage(
             })}
           </div>
 
-          <div class="shortcut-bar">
+          <div class="shortcut-bar desktop-only">
             Pintasan keyboard: <kbd class="kbd">j</kbd> / <kbd class="kbd">k</kbd> pilih baris ·
             <kbd class="kbd">x</kbd> centang · <kbd class="kbd">Enter</kbd> buka tiket ·
             <kbd class="kbd">Ctrl+K</kbd> cari cepat
@@ -402,6 +444,7 @@ export function queuePage(
           </div>
         </div>`
       : null}
+    </div>
   </div>`;
 }
 
@@ -474,12 +517,12 @@ export function agentTicketDetailPage(
                     data-reload="true"
                     data-success-msg="Status tiket berhasil diperbarui"
                   >
-                    ${icon('play', 'icon-xs')} <span>Start Progress</span>
+                    ${icon('play', 'icon-xs')} <span>Mulai Kerjakan</span>
                   </button>`
                 : null}
               ${canDrive && detail.status === 'in_progress'
                 ? html`<button type="button" class="btn btn-secondary btn-sm" data-open-dialog="dlg-pending">
-                    ${icon('pause', 'icon-xs')} <span>Jeda (Pending)</span>
+                    ${icon('pause', 'icon-xs')} <span>Jeda Sementara</span>
                   </button>`
                 : null}
               ${canDrive && detail.status === 'pending' && !detail.approval.awaiting
@@ -492,12 +535,12 @@ export function agentTicketDetailPage(
                     data-reload="true"
                     data-success-msg="Status tiket dilanjutkan"
                   >
-                    ${icon('play', 'icon-xs')} <span>Lanjutkan (Resume)</span>
+                    ${icon('play', 'icon-xs')} <span>Lanjutkan</span>
                   </button>`
                 : null}
               ${canDrive && detail.status === 'in_progress' && !detail.approval.awaiting
                 ? html`<button type="button" class="btn btn-success btn-sm" data-open-dialog="dlg-resolve">
-                    ${icon('checkCircle', 'icon-xs')} <span>Selesaikan (Resolve)</span>
+                    ${icon('checkCircle', 'icon-xs')} <span>Selesaikan</span>
                   </button>`
                 : null}
               <button type="button" class="btn btn-ghost btn-sm text-danger" data-open-dialog="dlg-cancel">
@@ -643,7 +686,7 @@ export function agentTicketDetailPage(
               <span class="text-muted">Mendesak (Urgency):</span>
               <strong>${LEVEL_LABELS[detail.urgency] ?? detail.urgency}</strong>
             </div>
-            ${isActive
+            ${isActive && canWork
               ? html`<button type="button" class="btn btn-ghost btn-sm w-full" data-open-dialog="dlg-classify">
                   ${icon('edit', 'icon-xs')} <span>Ubah Dampak / Urgensi</span>
                 </button>`
@@ -950,7 +993,7 @@ function agentTicketModals(detail: TicketDetail): HtmlContent {
               minlength="10"
               required
             ></textarea>
-            <span class="field-hint">Catatan ini dicatat permanen dalam audit trail tiket_events.</span>
+            <span class="field-hint">Catatan ini dicatat permanen dalam riwayat audit sistem.</span>
           </div>
           <div class="form-error" data-form-error role="alert" hidden></div>
           <div class="modal-foot">
@@ -1323,14 +1366,14 @@ export function adminPage(data: AdminData): HtmlContent {
               <tbody>
                 ${data.users.map(
                   (u) => html`<tr data-user-row data-search="${`${u.name} ${u.email} ${u.department}`.toLowerCase()}" data-role="${u.role}" data-active="${u.isActive ? 'active' : 'inactive'}">
-                    <td>
+                    <td data-label="Pengguna">
                       <div class="stack-xs">
                         <strong>${u.name}</strong>
                         <span class="mono text-muted text-xs">${u.email}</span>
                       </div>
                     </td>
-                    <td class="text-muted">${u.department}</td>
-                    <td>
+                    <td class="text-muted" data-label="Departemen">${u.department}</td>
+                    <td data-label="Role">
                       <form
                         data-api-form
                         action="/api/admin/users/${u.id}/role"
@@ -1351,7 +1394,7 @@ export function adminPage(data: AdminData): HtmlContent {
                         <div class="form-error" data-form-error role="alert" hidden></div>
                       </form>
                     </td>
-                    <td class="text-center">
+                    <td class="text-center" data-label="Status">
                       <button
                         type="button"
                         class="admin-toggle"
@@ -1502,9 +1545,9 @@ export function adminPage(data: AdminData): HtmlContent {
                             };
                             return html`<tr data-sla-row="${p}">
                               <th scope="row">${priorityBadge(p)}</th>
-                              <td>${slaField('response', 'Respons', tgt.responseMinutes)}</td>
-                              <td>${slaField('resolution', 'Resolusi', tgt.resolutionMinutes)}</td>
-                              <td>
+                              <td data-label="Respons">${slaField('response', 'Respons', tgt.responseMinutes)}</td>
+                              <td data-label="Resolusi">${slaField('resolution', 'Resolusi', tgt.resolutionMinutes)}</td>
+                              <td data-label="Kalender">
                                 <label class="sr-only" for="sla-${pol.id}-${p}-cal">Kalender ${p}</label>
                                 <select id="sla-${pol.id}-${p}-cal" class="select select-sm" data-sla-cal>
                                   ${data.calendars.map((cal) => html`<option value="${cal.id}" data-kind="${cal.kind}"${flag('selected', cal.id === tgt.calendarId)}>${cal.name}</option>`)}
@@ -1542,7 +1585,7 @@ export function adminPage(data: AdminData): HtmlContent {
             <p class="card-desc">Layanan yang dapat diajukan pengguna melalui form IT CTII Internal Service Request.</p>
           </div>
           ${data.catalog.length === 0
-            ? html`<div class="card-body text-muted text-xs">Belum ada item katalog.</div>`
+            ? html`<div class="card-body">${emptyState('Belum ada item katalog', 'Layanan yang tersedia di portal akan muncul di sini.', undefined, 'folder')}</div>`
             : html`<div class="table-wrap admin-table-wrap">
                 <table class="table admin-table">
                   <thead>
@@ -1559,7 +1602,7 @@ export function adminPage(data: AdminData): HtmlContent {
                       const cat = data.categories.find((c) => c.id === item.categoryId);
                       const ic: IconName = (CATALOG_ICONS as readonly string[]).includes(item.icon) ? (item.icon as IconName) : 'help';
                       return html`<tr>
-                        <td>
+                        <td data-label="Layanan">
                           <div class="admin-service">
                             <span class="admin-service-icon">${icon(ic, 'icon-sm')}</span>
                             <div class="stack-xs">
@@ -1568,14 +1611,14 @@ export function adminPage(data: AdminData): HtmlContent {
                             </div>
                           </div>
                         </td>
-                        <td>
+                        <td data-label="Tipe Tiket">
                           <span class="badge ${item.ticketType === 'incident' ? 'badge-incident' : 'badge-request'}">
                             ${TICKET_TYPE_LABELS[item.ticketType] ?? item.ticketType}
                           </span>
                         </td>
-                        <td>${LEVEL_LABELS[item.defaultImpact] ?? item.defaultImpact}</td>
-                        <td class="tabular">${item.formSchema.length}</td>
-                        <td class="text-center">
+                        <td data-label="Dampak Default">${LEVEL_LABELS[item.defaultImpact] ?? item.defaultImpact}</td>
+                        <td class="tabular" data-label="Jumlah Field">${item.formSchema.length}</td>
+                        <td class="text-center" data-label="Status">
                           <span class="badge ${item.isActive ? 'badge-ok' : 'badge-muted'}">${item.isActive ? 'Aktif' : 'Nonaktif'}</span>
                         </td>
                       </tr>`;
@@ -1593,12 +1636,12 @@ export function adminPage(data: AdminData): HtmlContent {
             <p class="card-desc">Struktur klasifikasi tiket dan routing otomatis ke Tim IT.</p>
           </div>
           ${data.categories.length === 0
-            ? html`<div class="card-body"><p class="text-muted text-xs">Belum ada kategori.</p></div>`
+            ? html`<div class="card-body">${emptyState('Belum ada kategori', 'Daftar kategori layanan dan gangguan akan tampil di sini.', undefined, 'folder')}</div>`
             : html`<div class="list-card">
                 ${data.categories.map((cat) => {
                   const parent = data.categories.find((c) => c.id === cat.parentId);
                   return html`<div class="list-row">
-                    <div class="row-gap-sm">
+                    <div class="row-gap-sm wrap">
                       ${icon('folder', 'icon-sm text-accent')}
                       <strong>${cat.name}</strong>
                       ${parent
@@ -1718,7 +1761,7 @@ export function notificationsPage(
           Belum Dibaca
         </a>
       </div>
-      <button type="button" class="btn btn-secondary btn-sm" data-notif-read-all>
+      <button type="button" class="btn btn-secondary btn-sm" data-notif-read-all${flag('disabled', !items.some((n) => !n.readAt))}>
         ${icon('check', 'icon-xs')} <span>Tandai Semua Telah Dibaca</span>
       </button>
     </div>
@@ -1727,7 +1770,9 @@ export function notificationsPage(
       ? emptyState(
           'Tidak ada notifikasi',
           unreadOnly ? 'Semua notifikasi sudah Anda baca.' : 'Belum ada notifikasi baru untuk akun Anda.',
-          undefined,
+          unreadOnly
+            ? html`<a href="/notifications" class="btn btn-secondary btn-sm">Lihat Semua Notifikasi</a>`
+            : undefined,
           'bell',
         )
       : html`<div class="card list-card">
@@ -1738,7 +1783,7 @@ export function notificationsPage(
               <div class="row-gap-sm">
                 <span class="unread-dot${isUnread ? '' : ' is-transparent'}" aria-hidden="true"></span>
                 <div class="stack-xs">
-                  <a href="${href}" data-notif-read="${n.id}" class="link-plain text-xs">${n.title}</a>
+                  <a href="${href}" data-notif-read="${n.id}" class="link-plain text-xs">${n.title}${isUnread ? html` <span class="sr-only">(Belum dibaca)</span>` : null}</a>
                   <span class="text-muted text-xs">
                     ${formatDateTime(n.createdAt)} (${formatRelative(n.createdAt, now)})
                   </span>

@@ -142,15 +142,15 @@ describe('ticket workflow end-to-end', () => {
     const detail = async () =>
       (await app.request(`/tickets/${t.number}`, { headers: { cookie: agent } })).text();
     let h = await detail();
-    expect(h).not.toContain('Start Progress');
+    expect(h).not.toContain('Mulai Kerjakan');
     expect(h).not.toContain('data-open-dialog="dlg-resolve"');
     await post(`/api/tickets/${t.id}/assign`, agent, { assigneeId: 'usr-agent' });
     h = await detail();
-    expect(h).toContain('Start Progress');
+    expect(h).toContain('Mulai Kerjakan');
     expect(h).not.toContain('data-open-dialog="dlg-resolve"');
     await post(`/api/tickets/${t.id}/transition`, agent, { to: 'in_progress' });
     h = await detail();
     expect(h).toContain('data-open-dialog="dlg-resolve"');
-    expect(h).not.toContain('Start Progress');
+    expect(h).not.toContain('Mulai Kerjakan');
   });
 });

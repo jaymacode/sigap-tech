@@ -80,6 +80,9 @@ const ICON_PATHS = {
   barChart: '<line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/>',
   upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
   chevronRight: '<path d="m9 18 6-6-6-6"/>',
+  menu: '<line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  sliders: '<line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="2" x2="6" y1="14" y2="14"/><line x1="10" x2="14" y1="8" y2="8"/><line x1="18" x2="22" y1="16" y2="16"/>',
 } as const;
 
 export type IconName = keyof typeof ICON_PATHS;
@@ -286,8 +289,15 @@ export function kpiTile(opts: {
   href?: string;
 }): HtmlContent {
   const status = opts.status ?? 'neutral';
+  const statusIcon: IconName | null =
+    status === 'ok' ? 'checkCircle' : status === 'risk' ? 'warn' : status === 'breach' ? 'octagon' : null;
+  const statusSr =
+    status === 'ok' ? 'Sesuai target' : status === 'risk' ? 'Perlu perhatian' : status === 'breach' ? 'Melewati batas' : '';
   const inner = html`<div class="card kpi-tile kpi-${status}">
-    <span class="kpi-title">${opts.title}</span>
+    <div class="kpi-head">
+      <span class="kpi-title">${opts.title}</span>
+      ${statusIcon ? html`<span class="kpi-status-icon">${icon(statusIcon, 'icon-xs')}<span class="sr-only">${statusSr}</span></span>` : null}
+    </div>
     <div class="kpi-value tabular">${opts.value}</div>
     ${opts.subtitle ? html`<p class="kpi-sub">${opts.subtitle}</p>` : null}
   </div>`;
@@ -396,7 +406,7 @@ function eventDescription(entry: TimelineEntry): string {
       return `${step} ${verb} oleh ${String(d.approverName ?? '')}${d.note ? `: "${String(d.note)}"` : ''}${presdir}`;
     }
     case 'it_assessment_updated':
-      return 'Bagian IT (Action to be taken / Impact and Analysis) diperbarui';
+      return 'Rencana Tindakan & Analisis Dampak IT diperbarui';
     default:
       return entry.eventType?.replace(/_/g, ' ') ?? 'Aktivitas sistem';
   }

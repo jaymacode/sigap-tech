@@ -1,6 +1,7 @@
 /**
  * Format waktu & durasi untuk UI. Konversi zona waktu HANYA dilakukan di sini:
- * data disimpan/dikirim sebagai UTC ISO string.
+ * data disimpan/dik
+ * irim sebagai UTC ISO string.
  */
 
 export const APP_TZ = 'Asia/Jakarta';
@@ -149,10 +150,10 @@ export function formatSlaTarget(
 }
 
 /** Durasi dalam jam dengan 1 desimal: "3,4 j" (untuk MTTA/MTTR). */
-const rtf = new Intl.RelativeTimeFormat(LOCALE, { numeric: 'auto' });
+const rtf = new Intl.RelativeTimeFormat(LOCALE, { numeric: 'always' });
 
 /**
- * Waktu relatif: "3 jam yang lalu", "kemarin".
+ * Waktu relatif: "3 jam yang lalu", "2 hari yang lalu".
  * @param value - waktu yang diformat
  * @param now - waktu acuan (diinjeksi agar deterministik di SSR/test)
  */

@@ -373,4 +373,87 @@ describe('Relife API routes', () => {
     expect(patchedBody.data.status).toBe('succeeded');
     expect(patchedBody.data.finishedAt).not.toBeNull();
   });
+
+  it('enforces worker tick auth, strips requester impact, validates transition assignee, and runs bulk-assign atomically', async () => {
+    const reqCookie = await loginAs('requester');
+    const leadCookie = await loginAs('lead');
+    const adminCookie = await loginAs('admin');
+
+    expect((await jsonReq('/api/worker/tick', 'POST', {})).status).toBe(401);
+    expect((await jsonReq('/api/worker/tick', 'POST', {}, reqCookie)).status).toBe(403);
+    expect((await jsonReq('/api/worker/tick', 'POST', {}, adminCookie)).status).toBe(200);
+    expect(
+      (await jsonReq('/api/worker/tick', 'POST', {}, undefined, { authorization: 'Bearer local-change-token' })).status,
+    ).toBe(200);
+
+    // Requester cannot force impact
+    const cat = getStore().catalog.get('cat-item-network')!;
+    const createRes = await jsonReq(
+      '/api/tickets',
+      'POST',
+      {
+        catalogItemId: cat.id,
+        title: 'Uji dampak tidak boleh dipaksa requester',
+        description: 'Memastikan nilai impact mengikuti katalog.',
+        urgency: 'high',
+        impact: cat.defaultImpact === 'high' ? 'low' : 'high',
+        formData: { service_request_type: 'Problem' },
+      },
+      reqCookie,
+    );
+    expect(createRes.status).toBe(201);
+    const createdJson = (await createRes.json()) as { data: { id: string } };
+    const createdTicket = getStore().tickets.get(createdJson.data.id)!;
+    expect(createdTicket.impact).toBe(cat.defaultImpact);
+
+    // Transition to assigned rejects non-staff requester assignee
+    const badAssign = await jsonReq(
+      `/api/tickets/${createdTicket.id}/transition`,
+      'POST',
+      { to: 'assigned', assigneeId: 'usr-user' },
+      leadCookie,
+    );
+    expect(badAssign.status).toBe(400);
+
+    // Bulk assign deduplicates IDs and aborts cleanly before mutating if a batch contains a closed ticket
+    const closedRes = await jsonReq(
+      '/api/tickets',
+      'POST',
+      {
+        catalogItemId: cat.id,
+        title: 'Tiket akan ditutup sebelum bulk',
+        description: 'Untuk menguji atomicity bulk assign.',
+        urgency: 'low',
+        formData: { service_request_type: 'Problem' },
+      },
+      reqCookie,
+    );
+    const closedId = ((await closedRes.json()) as { data: { id: string } }).data.id;
+    await jsonReq(
+      `/api/tickets/${closedId}/transition`,
+      'POST',
+      { to: 'cancelled', cancellationReason: 'Batal uji' },
+      leadCookie,
+    );
+
+    const beforeAssignee = createdTicket.assigneeId;
+    const atomicFail = await jsonReq(
+      '/api/tickets/bulk-assign',
+      'POST',
+      { ticketIds: [createdTicket.id, closedId], assigneeId: 'usr-agent' },
+      leadCookie,
+    );
+    expect(atomicFail.status).toBe(400);
+    expect(getStore().tickets.get(createdTicket.id)!.assigneeId).toBe(beforeAssignee);
+
+    const dedupeOk = await jsonReq(
+      '/api/tickets/bulk-assign',
+      'POST',
+      { ticketIds: [createdTicket.id, createdTicket.id], assigneeId: 'usr-agent' },
+      leadCookie,
+    );
+    expect(dedupeOk.status).toBe(200);
+    const dedupeJson = (await dedupeOk.json()) as { data: { count: number } };
+    expect(dedupeJson.data.count).toBe(1);
+  });
 });

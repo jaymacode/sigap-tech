@@ -48,23 +48,35 @@ export function userRecord(store: Store, session: SessionUser): UserRecord {
   return record;
 }
 
-function signature(userId: string): string {
-  return createHmac('sha256', sessionSecret()).update(userId).digest('base64url');
+function signature(payload: string): string {
+  return createHmac('sha256', sessionSecret()).update(payload).digest('base64url');
 }
 
-/** Nilai cookie sesi: `<userId>.<hmac-sha256 base64url>`. */
-export function signSessionValue(userId: string): string {
-  return `${userId}.${signature(userId)}`;
+/** Nilai cookie sesi: `<userId>.<expSec>.<hmac-sha256 base64url>`. */
+export function signSessionValue(
+  userId: string,
+  nowSec: number = Math.floor(Date.now() / 1000),
+): string {
+  const payload = `${userId}.${nowSec + COOKIE_MAX_AGE_SECONDS}`;
+  return `${payload}.${signature(payload)}`;
 }
 
-/** Memverifikasi nilai cookie; mengembalikan userId atau null bila tidak bertanda tangan / dipalsukan. */
-export function verifySessionValue(value: string): string | null {
-  const dot = value.lastIndexOf('.');
-  if (dot <= 0) return null;
-  const userId = value.slice(0, dot);
-  const given = Buffer.from(value.slice(dot + 1));
-  const expected = Buffer.from(signature(userId));
+/** Memverifikasi nilai cookie & kedaluwarsa; mengembalikan userId atau null bila tidak sah. */
+export function verifySessionValue(
+  value: string,
+  nowSec: number = Math.floor(Date.now() / 1000),
+): string | null {
+  const sigDot = value.lastIndexOf('.');
+  if (sigDot <= 0) return null;
+  const payload = value.slice(0, sigDot);
+  const given = Buffer.from(value.slice(sigDot + 1));
+  const expected = Buffer.from(signature(payload));
   if (given.length !== expected.length || !timingSafeEqual(given, expected)) return null;
+  const expDot = payload.lastIndexOf('.');
+  if (expDot <= 0) return null;
+  const userId = payload.slice(0, expDot);
+  const exp = Number(payload.slice(expDot + 1));
+  if (!userId || !Number.isFinite(exp) || exp <= nowSec) return null;
   return userId;
 }
 

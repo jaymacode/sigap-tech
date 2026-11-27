@@ -28,6 +28,20 @@ export function createApp(): Hono {
       headers: { 'Content-Type': 'text/javascript; charset=utf-8' },
     }),
   );
+  app.get('/css/:file', async (c) => {
+    const file = c.req.param('file');
+    if (!/^[a-z0-9-]+\.css$/i.test(file)) return c.notFound();
+    const asset = Bun.file(join(PUBLIC_DIR, 'css', file));
+    if (!(await asset.exists())) return c.notFound();
+    return new Response(asset, { headers: { 'Content-Type': 'text/css; charset=utf-8' } });
+  });
+  app.get('/js/:file', async (c) => {
+    const file = c.req.param('file');
+    if (!/^[a-z0-9-]+\.js$/i.test(file)) return c.notFound();
+    const asset = Bun.file(join(PUBLIC_DIR, 'js', file));
+    if (!(await asset.exists())) return c.notFound();
+    return new Response(asset, { headers: { 'Content-Type': 'text/javascript; charset=utf-8' } });
+  });
   app.use('/*', serveStatic({ root: PUBLIC_DIR }));
 
   app.route('/api/auth', authRoutes);

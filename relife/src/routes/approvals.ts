@@ -42,7 +42,10 @@ async function body<T extends z.ZodTypeAny>(
   schema: T,
 ): Promise<{ ok: true; data: z.infer<T> } | { ok: false; res: Response }> {
   const raw = await c.req.json().catch(() => null);
-  const parsed = schema.safeParse(raw ?? {});
+  if (raw === null) {
+    return { ok: false, res: c.json({ ok: false, error: 'Invalid JSON body' }, 400) };
+  }
+  const parsed = schema.safeParse(raw);
   if (!parsed.success) {
     return {
       ok: false,
@@ -226,7 +229,19 @@ approvalRoutes.post('/approve/:token', async (c) => {
   const store = getStore();
   const found = findByToken(store, c.req.param('token'), new Date());
   if (!found.ok) return c.html(approvePage({ state: found.reason }), found.reason === 'expired' ? 410 : 404);
-  const form = await c.req.parseBody();
+  const form = await c.req.parseBody().catch(() => null);
+  if (!form) {
+    return c.html(
+      approvePage({
+        state: 'form',
+        step: found.row.step,
+        approverName: found.row.approverName,
+        ticket: publicSummary(found.ticket),
+        error: 'Data formulir tidak valid',
+      }),
+      400,
+    );
+  }
   const decision = form.decision === 'approve' ? 'approve' : form.decision === 'reject' ? 'reject' : null;
   const note = typeof form.note === 'string' ? form.note.slice(0, 2000) : '';
   const formState = {

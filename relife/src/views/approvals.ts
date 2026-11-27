@@ -240,20 +240,20 @@ export function agentApprovalCard(detail: TicketDetail, user: SessionUser): Html
         ? html`<form data-api-form action="/api/tickets/${detail.id}/it-part" data-method="POST" data-reload="true"
             data-success-msg="Bagian IT disimpan" class="stack-sm">
             <div class="field">
-              <label class="label" for="it-action">Rencana Tindakan (Action Plan)</label>
+              <label class="label" for="it-action">Rencana Tindakan IT</label>
               <textarea id="it-action" name="actionPlan" rows="3" class="textarea">${a.actionPlan ?? ''}</textarea>
             </div>
             <div class="field">
-              <label class="label" for="it-impact">Analisis Dampak (Impact Analysis)</label>
+              <label class="label" for="it-impact">Analisis Dampak</label>
               <textarea id="it-impact" name="impactAnalysis" rows="3" class="textarea">${a.impactAnalysis ?? ''}</textarea>
             </div>
             <div class="form-error" data-form-error role="alert" hidden></div>
             <div><button type="submit" class="btn btn-secondary btn-sm">Simpan Bagian IT</button></div>
           </form>`
         : html`<div class="stack-xs">
-            <span class="kv-label">Rencana Tindakan (Action Plan)</span>
+            <span class="kv-label">Rencana Tindakan IT</span>
             <p class="prose-pre">${a.actionPlan ?? '—'}</p>
-            <span class="kv-label">Analisis Dampak (Impact Analysis)</span>
+            <span class="kv-label">Analisis Dampak</span>
             <p class="prose-pre">${a.impactAnalysis ?? '—'}</p>
             ${itLocked ? html`<span class="text-muted text-xs">${icon('lock', 'icon-xs')} Terkunci setelah diajukan ke Head IT.</span>` : null}
           </div>`}

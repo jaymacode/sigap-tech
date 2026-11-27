@@ -58,7 +58,7 @@ function assertShellA11y(html: string, route: string, expectSkipLink = true): vo
 }
 
 describe('Relife HTML views & static assets', () => {
-  it('serves app.css and app.js regardless of CWD and validates app.js syntax', async () => {
+  it('serves app.css, app.js, and split CSS/JS modules regardless of CWD and validates JS syntax', async () => {
     const css = await app.request('/app.css');
     const js = await app.request('/app.js');
     expect(css.status).toBe(200);
@@ -66,9 +66,28 @@ describe('Relife HTML views & static assets', () => {
     expect(js.status).toBe(200);
     expect(js.headers.get('content-type')).toContain('text/javascript');
 
-    const jsText = await js.text();
     const transpiler = new Bun.Transpiler({ loader: 'js' });
+    const jsText = await js.text();
     expect(() => transpiler.transformSync(jsText)).not.toThrow();
+
+    const cssModules = ['tokens.css', 'layout.css', 'components.css', 'portal.css', 'queue-detail.css', 'dashboard.css', 'admin.css', 'utilities.css'];
+    for (const file of cssModules) {
+      const res = await app.request(`/css/${file}`);
+      expect(res.status, `/css/${file}`).toBe(200);
+      expect(res.headers.get('content-type')).toContain('text/css');
+    }
+
+    const jsModules = ['core.js', 'attachments.js', 'sla-live.js', 'portal.js', 'queue.js', 'dashboard.js', 'admin.js'];
+    for (const file of jsModules) {
+      const res = await app.request(`/js/${file}`);
+      expect(res.status, `/js/${file}`).toBe(200);
+      expect(res.headers.get('content-type')).toContain('text/javascript');
+      const code = await res.text();
+      expect(() => transpiler.transformSync(code)).not.toThrow();
+    }
+
+    expect((await app.request('/css/missing.css')).status).toBe(404);
+    expect((await app.request('/js/missing.js')).status).toBe(404);
   });
 
   it('renders valid HTML, accessible shells, forms, and interactive contracts', async () => {

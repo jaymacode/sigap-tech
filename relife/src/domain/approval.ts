@@ -13,9 +13,9 @@ export const APPROVAL_STATUSES = ['pending', 'approved', 'rejected', 'skipped'] 
 export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number];
 
 export const APPROVAL_STEP_LABELS: Readonly<Record<ApprovalStep, string>> = {
-  hod: 'Acknowledge by HOD',
-  it_hod: 'Approval by IT HOD',
-  presdir: 'Approval by President Director',
+  hod: 'Persetujuan Atasan (HOD)',
+  it_hod: 'Persetujuan Head IT',
+  presdir: 'Persetujuan Presiden Direktur',
 };
 
 /** Masa berlaku link persetujuan email. */

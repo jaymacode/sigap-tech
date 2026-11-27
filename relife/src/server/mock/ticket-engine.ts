@@ -411,6 +411,10 @@ export function transitionTicket(
   const current = requireTicket(store, ticketId);
   const result = transition(current, to, toActor(actor), payload, now);
   if (!result.ok) throw new EngineError(result.error.code, result.error.message);
+  if (to === 'assigned') {
+    const targetAssignee = payload.assigneeId ?? current.assigneeId;
+    if (targetAssignee) assertValidAssignee(store, current.teamId, targetAssignee);
+  }
   const approvals = store.approvals.filter((a) => a.ticketId === ticketId);
   const gate = approvalGate(current, approvals, to);
   if (gate) throw new EngineError(gate.code, gate.message);
@@ -554,6 +558,18 @@ export function addComment(
   if (!isStaff && visibility === 'internal') {
     throw new EngineError('forbidden', 'Requester tidak dapat menulis catatan internal');
   }
+  const willAutoResume =
+    !isStaff && ticket.status === 'pending' && ticket.pendingReason === 'awaiting_user';
+  if (willAutoResume) {
+    const tr = transition(ticket, 'in_progress', toActor(null), {}, now);
+    if (!tr.ok) throw new EngineError(tr.error.code, tr.error.message);
+    const gate = approvalGate(
+      ticket,
+      store.approvals.filter((a) => a.ticketId === ticketId),
+      'in_progress',
+    );
+    if (gate) throw new EngineError(gate.code, gate.message);
+  }
 
   const comment = {
     id: nextId(store, 'cmt'),
@@ -612,6 +628,17 @@ export interface AssignInput {
   note?: string;
 }
 
+function assertValidAssignee(store: Store, teamId: string | null, assigneeId: string): void {
+  const team = teamId ? store.teams.get(teamId) : undefined;
+  const assignee = store.users.get(assigneeId);
+  if (!assignee?.isActive || assignee.role === 'requester') {
+    throw new EngineError('invalid_assignee', 'Assignee bukan staf IT aktif');
+  }
+  if (team && !team.memberIds.includes(assigneeId) && team.leadId !== assigneeId) {
+    throw new EngineError('invalid_assignee', 'Assignee bukan anggota tim tujuan');
+  }
+}
+
 /**
  * Assign / reassign tiket dalam tim tiket.
  * @throws EngineError bila assignee bukan anggota tim tujuan
@@ -627,15 +654,7 @@ export function assignTicket(
   if (ticket.status === 'closed' || ticket.status === 'cancelled') {
     throw new EngineError('final_status', 'Tiket sudah final');
   }
-  const targetTeamId = ticket.teamId;
-  if (input.assigneeId) {
-    const team = targetTeamId ? store.teams.get(targetTeamId) : undefined;
-    const assignee = store.users.get(input.assigneeId);
-    if (!assignee?.isActive) throw new EngineError('invalid_assignee', 'Assignee tidak aktif');
-    if (team && !team.memberIds.includes(input.assigneeId) && team.leadId !== input.assigneeId) {
-      throw new EngineError('invalid_assignee', 'Assignee bukan anggota tim tujuan');
-    }
-  }
+  if (input.assigneeId) assertValidAssignee(store, ticket.teamId, input.assigneeId);
 
   if (ticket.status === 'new' && input.assigneeId) {
     return transitionTicket(
@@ -677,13 +696,62 @@ export function assignTicket(
 // Priority
 // ---------------------------------------------------------------------------
 
+function handleSlaBreached(
+  store: Store,
+  ticket: TicketRecord,
+  kind: SlaKind,
+  now: Date,
+  reason?: string,
+): TicketRecord {
+  const kindLabel = kind === 'response' ? 'Response' : 'Resolution';
+  appendEvent(store, ticket.id, null, 'sla_breached', reason ? { kind, reason } : { kind }, now);
+  notify(
+    store,
+    ticket.assigneeId,
+    'sla_breached',
+    ticket,
+    `${kindLabel} SLA ${ticket.number} breached`,
+    now,
+  );
+  notify(
+    store,
+    teamLeadId(store, ticket.teamId),
+    'sla_breached',
+    ticket,
+    `${kindLabel} SLA ${ticket.number} breached`,
+    now,
+  );
+  if (kind !== 'resolution') return ticket;
+  const level = ticket.priority === 'P1' ? 2 : 1;
+  appendEvent(store, ticket.id, null, 'escalated_hierarchical', { level }, now);
+  const saved = saveTicket(
+    store,
+    { ...ticket, escalationLevel: Math.max(ticket.escalationLevel, level) },
+    now,
+  );
+  if (level === 2) {
+    for (const id of adminIds(store)) {
+      notify(
+        store,
+        id,
+        'escalated',
+        saved,
+        `P1 ${saved.number} breached — eskalasi level 2`,
+        now,
+      );
+    }
+  }
+  return saved;
+}
+
 function applyPriorityChange(
   store: Store,
   ticket: TicketRecord,
   priority: Priority,
   now: Date,
-): void {
-  const pair = slaPair(store, ticket.id);
+): TicketRecord {
+  let current = ticket;
+  const pair = slaPair(store, current.id);
   const policyId = pair.resolution.policyId;
   const target = targetFor(store, policyId, priority);
   for (const kind of ['response', 'resolution'] as const) {
@@ -703,10 +771,10 @@ function applyPriorityChange(
     const newTarget = kind === 'response' ? target.responseMinutes : target.resolutionMinutes;
     const result = rebaseline(instance, newTarget, now, cal);
     if (result.instance === original) continue;
-    setSla(store, ticket.id, kind, result.instance);
+    setSla(store, current.id, kind, result.instance);
     appendEvent(
       store,
-      ticket.id,
+      current.id,
       null,
       'sla_rebaselined',
       {
@@ -718,9 +786,10 @@ function applyPriorityChange(
       now,
     );
     if (result.breachedImmediately) {
-      appendEvent(store, ticket.id, null, 'sla_breached', { kind, reason: 'rebaseline' }, now);
+      current = handleSlaBreached(store, current, kind, now, 'rebaseline');
     }
   }
+  return current;
 }
 
 /**
@@ -742,6 +811,7 @@ export function overridePriority(
     throw new EngineError('reason_required', 'Alasan override minimal 10 karakter');
   if (priority === ticket.priority)
     throw new EngineError('no_change', 'Prioritas sama dengan sebelumnya');
+  const updated = saveTicket(store, { ...ticket, priority, priorityOverridden: true }, now);
   appendEvent(
     store,
     ticket.id,
@@ -750,8 +820,7 @@ export function overridePriority(
     { from: ticket.priority, to: priority, reason: reason.trim() },
     now,
   );
-  applyPriorityChange(store, ticket, priority, now);
-  return saveTicket(store, { ...ticket, priority, priorityOverridden: true }, now);
+  return applyPriorityChange(store, updated, priority, now);
 }
 
 /**
@@ -772,6 +841,7 @@ export function updateClassification(
   const priority = ticket.priorityOverridden
     ? ticket.priority
     : calculateTicketPriority(ticket.type, impact, urgency);
+  const updated = saveTicket(store, { ...ticket, impact, urgency, priority }, now);
   appendEvent(
     store,
     ticket.id,
@@ -787,8 +857,7 @@ export function updateClassification(
     },
     now,
   );
-  if (priority !== ticket.priority) applyPriorityChange(store, ticket, priority, now);
-  return saveTicket(store, { ...ticket, impact, urgency, priority }, now);
+  return priority !== ticket.priority ? applyPriorityChange(store, updated, priority, now) : updated;
 }
 
 // ---------------------------------------------------------------------------
@@ -921,43 +990,7 @@ export function runSlaTick(store: Store, now: Date): TickResult {
           ...latest,
           breachedAt: latest.dueAt < now ? latest.dueAt : now,
         });
-        appendEvent(store, ticketId, null, 'sla_breached', { kind }, now);
-        notify(
-          store,
-          ticket.assigneeId,
-          'sla_breached',
-          ticket,
-          `${kindLabel} SLA ${ticket.number} breached`,
-          now,
-        );
-        notify(
-          store,
-          teamLeadId(store, ticket.teamId),
-          'sla_breached',
-          ticket,
-          `${kindLabel} SLA ${ticket.number} breached`,
-          now,
-        );
-        if (kind === 'resolution') {
-          const level = ticket.priority === 'P1' ? 2 : 1;
-          appendEvent(store, ticketId, null, 'escalated_hierarchical', { level }, now);
-          saveTicket(
-            store,
-            { ...ticket, escalationLevel: Math.max(ticket.escalationLevel, level) },
-            now,
-          );
-          if (level === 2) {
-            for (const id of adminIds(store))
-              notify(
-                store,
-                id,
-                'escalated',
-                ticket,
-                `P1 ${ticket.number} breached — eskalasi level 2`,
-                now,
-              );
-          }
-        }
+        handleSlaBreached(store, requireTicket(store, ticketId), kind, now);
         result.breached += 1;
       }
     }

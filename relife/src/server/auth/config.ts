@@ -13,7 +13,9 @@ let warnedFallback = false;
 
 /** Mode autentikasi aktif: `demo` (default, dev) atau `ims` (produksi, SSO perusahaan). */
 export function authMode(): AuthMode {
-  return process.env.AUTH_MODE === 'ims' ? 'ims' : 'demo';
+  if (process.env.AUTH_MODE === 'ims') return 'ims';
+  if (process.env.AUTH_MODE === 'demo') return 'demo';
+  return process.env.NODE_ENV === 'production' ? 'ims' : 'demo';
 }
 
 /** true bila login demo (1-klik, email+password, ganti akun) diizinkan. */

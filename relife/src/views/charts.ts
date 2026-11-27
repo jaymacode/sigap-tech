@@ -217,7 +217,9 @@ export function slaPriorityChart(slaByPriority: PrioritySlaPoint[]): HtmlContent
             </g>`;
           })}
 
-          ${slaByPriority.map((item, i) => {
+          ${slaByPriority.every((item) => item.total === 0)
+            ? html`<text x="${W / 2}" y="${H / 2}" text-anchor="middle" class="chart-axis">Belum ada data SLA pada periode ini.</text>`
+            : slaByPriority.map((item, i) => {
             const y = pad.top + i * rowH + 8;
             const barH = Math.max(22, rowH - 16);
             const barW = Math.max(0, (item.metPercent / 100) * plotW);
@@ -281,7 +283,7 @@ export function slaPriorityChart(slaByPriority: PrioritySlaPoint[]): HtmlContent
 export function agingChart(aging: AgingBucketPoint[]): HtmlContent {
   const W = 560;
   const H = 290;
-  const pad = { top: 20, right: 20, bottom: 38, left: 42 };
+  const pad = { top: 24, right: 20, bottom: 38, left: 42 };
   const plotW = W - pad.left - pad.right;
   const plotH = H - pad.top - pad.bottom;
 
@@ -319,7 +321,9 @@ export function agingChart(aging: AgingBucketPoint[]): HtmlContent {
             </g>`;
           })}
 
-          ${aging.map((b, i) => {
+          ${rawMax === 0
+            ? html`<text x="${W / 2}" y="${H / 2}" text-anchor="middle" class="chart-axis">Belum ada tiket aktif pada backlog saat ini.</text>`
+            : aging.map((b, i) => {
             const cx = pad.left + i * colW + colW / 2;
             const x = (cx - barW / 2).toFixed(1);
             const total = b.P1 + b.P2 + b.P3 + b.P4;
@@ -342,7 +346,7 @@ export function agingChart(aging: AgingBucketPoint[]): HtmlContent {
                 />`;
               })}
               ${total > 0
-                ? html`<text x="${cx.toFixed(1)}" y="${Math.max(pad.top + 10, curBottom - 6).toFixed(1)}" text-anchor="middle" class="chart-val">${total}</text>`
+                ? html`<text x="${cx.toFixed(1)}" y="${Math.max(14, curBottom - 6).toFixed(1)}" text-anchor="middle" class="chart-val">${total}</text>`
                 : null}
               <text x="${cx.toFixed(1)}" y="${H - 12}" text-anchor="middle" class="chart-axis">${b.label}</text>
               <rect
@@ -452,15 +456,21 @@ export function agentPerformanceCard(agents: AgentPerformanceRow[]): HtmlContent
                       : a.slaPercent >= 85
                         ? 'text-sla-risk'
                         : 'text-sla-breach';
+                  const slaLabel =
+                    a.slaPercent >= 95
+                      ? 'Tercapai'
+                      : a.slaPercent >= 85
+                        ? 'Waspada'
+                        : 'Rendah';
                   return html`<tr>
-                    <td class="font-bold">
+                    <td class="font-bold agent-perf-name">
                       <a href="/queue?assignee=${a.id}" class="link-plain">${a.name}</a>
                     </td>
-                    <td class="text-center mono tabular text-accent font-bold">${a.activeCount}</td>
-                    <td class="text-center mono tabular">${a.resolvedCount}</td>
-                    <td class="text-center mono tabular text-muted">${a.mttrHours} jam</td>
-                    <td class="text-center mono tabular font-bold ${slaCls}">${a.slaPercent}%</td>
-                    <td class="text-center mono tabular">
+                    <td class="text-center mono tabular text-accent font-bold" data-label="Tiket Aktif">${a.activeCount}</td>
+                    <td class="text-center mono tabular" data-label="Diselesaikan">${a.resolvedCount}</td>
+                    <td class="text-center mono tabular text-muted" data-label="MTTR">${a.mttrHours} jam</td>
+                    <td class="text-center mono tabular font-bold ${slaCls}" data-label="SLA Met">${a.slaPercent}% <span class="text-xs">(${slaLabel})</span></td>
+                    <td class="text-center mono tabular" data-label="CSAT">
                       ${a.csatScore !== null
                         ? html`<span class="text-amber font-bold"><span aria-hidden="true">★</span> ${a.csatScore}</span>`
                         : html`<span class="text-muted">—</span>`}

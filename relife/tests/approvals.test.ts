@@ -214,11 +214,11 @@ describe('Approval UI', () => {
     const lead = await page(`/tickets/${number}`, 'lead');
     expect(lead).toContain('Setujui / Tolak (Head IT)');
     const agent = await page(`/tickets/${number}`, 'agent');
-    expect(agent).toContain('Approval by IT HOD');
+    expect(agent).toContain('Persetujuan Head IT');
     expect(agent).not.toContain('Setujui / Tolak (Head IT)');
-    expect(agent).not.toContain('Start Progress');
+    expect(agent).not.toContain('Mulai Kerjakan');
     const portal = await page(`/portal/tickets/${number}`, 'requester');
-    expect(portal).toContain('Acknowledge by HOD');
+    expect(portal).toContain('Persetujuan Atasan (HOD)');
     expect(portal).toContain('Dicatat manual');
     const queue = await page('/queue?view=approval', 'lead');
     expect(queue).toContain(number);

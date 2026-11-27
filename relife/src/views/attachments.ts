@@ -19,8 +19,10 @@ export function attachmentPicker(inputId: string): HtmlContent {
       data-att-input
       data-max-bytes="${maxAttachmentBytes()}"
       accept="${ATTACHMENT_ACCEPT}"
+      aria-describedby="${inputId}-hint"
       multiple
     />
+    <span id="${inputId}-hint" class="field-hint">Gambar, PDF, teks/log, Office, ZIP · maks. ${Math.round(maxAttachmentBytes() / 1024 / 1024)} MB per berkas.</span>
     <ul class="att-list" data-att-list aria-live="polite" aria-label="Lampiran yang akan dikirim"></ul>
   </div>`;
 }

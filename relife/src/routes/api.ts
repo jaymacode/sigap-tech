@@ -38,6 +38,7 @@ import type {
   CategoryRecord,
   ChangeRecord,
   ChangeStatus,
+  TicketRecord,
 } from '@/server/mock/types';
 import { searchTickets } from '@/server/queries/tickets';
 
@@ -50,12 +51,12 @@ const attachmentIdsSchema = z.array(z.string().min(1)).max(10, 'Maksimal 10 lamp
 
 const createTicketSchema = z.object({
   catalogItemId: z.string().min(1, 'Layanan wajib dipilih'),
-  title: z.string().min(5, 'Judul minimal 5 karakter').max(120, 'Judul maksimal 120 karakter'),
-  description: z.string().min(10, 'Deskripsi minimal 10 karakter'),
+  title: z.string().trim().min(5, 'Judul minimal 5 karakter').max(120, 'Judul maksimal 120 karakter'),
+  description: z.string().trim().min(10, 'Deskripsi minimal 10 karakter').max(10000, 'Deskripsi maksimal 10000 karakter'),
   urgency: z.enum(LEVELS),
   impact: z.enum(LEVELS).optional(),
   formData: z
-    .record(z.string(), z.string())
+    .record(z.string(), z.string().max(2000, 'Nilai kolom tambahan terlalu panjang'))
     .default({})
     .transform((fd) => {
       const out: Record<string, string> = {};
@@ -85,7 +86,7 @@ const createTicketSchema = z.object({
 });
 
 const commentSchema = z.object({
-  body: z.string().min(2, 'Pesan tidak boleh kosong'),
+  body: z.string().trim().min(2, 'Pesan tidak boleh kosong').max(10000, 'Pesan maksimal 10000 karakter'),
   visibility: z.enum(['public', 'internal']),
   attachmentIds: attachmentIdsSchema,
 });
@@ -94,9 +95,9 @@ const transitionSchema = z.object({
   to: z.enum(TICKET_STATUSES),
   pendingReason: z.enum(PENDING_REASONS).optional(),
   resolutionCode: z.enum(RESOLUTION_CODES).optional(),
-  resolutionNotes: z.string().optional(),
-  cancellationReason: z.string().optional(),
-  reopenReason: z.string().optional(),
+  resolutionNotes: z.string().max(5000).optional(),
+  cancellationReason: z.string().max(1000).optional(),
+  reopenReason: z.string().max(1000).optional(),
   assigneeId: z.string().optional(),
 });
 
@@ -110,13 +111,16 @@ const assignSchema = z.object({
 });
 
 const bulkAssignSchema = z.object({
-  ticketIds: z.array(z.string()),
-  assigneeId: z.string().nullable(),
+  ticketIds: z.array(z.string().min(1)).min(1, 'Pilih minimal satu tiket').max(100, 'Maksimal 100 tiket sekaligus'),
+  assigneeId: z
+    .string()
+    .nullable()
+    .transform((v) => (v && v.trim() !== '' ? v : null)),
 });
 
 const overridePrioritySchema = z.object({
   priority: z.enum(PRIORITIES),
-  reason: z.string(),
+  reason: z.string().trim().min(10, 'Alasan override minimal 10 karakter').max(500, 'Alasan maksimal 500 karakter'),
 });
 
 const classificationSchema = z.object({
@@ -126,7 +130,7 @@ const classificationSchema = z.object({
 
 const csatSchema = z.object({
   score: z.coerce.number().int().min(1, 'Skor harus 1–5').max(5, 'Skor harus 1–5'),
-  comment: z.string().default(''),
+  comment: z.string().trim().max(1000, 'Komentar maksimal 1000 karakter').default(''),
 });
 
 const userRoleSchema = z.object({
@@ -135,7 +139,7 @@ const userRoleSchema = z.object({
 
 const teamSchema = z.object({
   id: z.string().optional(),
-  name: z.string().min(2, 'Nama tim minimal 2 karakter'),
+  name: z.string().trim().min(2, 'Nama tim minimal 2 karakter').max(100, 'Nama tim maksimal 100 karakter'),
   leadId: z.string().min(1, 'Head IT wajib dipilih'),
   autoAssign: z.boolean(),
   memberIds: z.array(z.string()),
@@ -143,7 +147,7 @@ const teamSchema = z.object({
 
 const categorySchema = z.object({
   id: z.string().optional(),
-  name: z.string().min(2, 'Nama kategori minimal 2 karakter'),
+  name: z.string().trim().min(2, 'Nama kategori minimal 2 karakter').max(100, 'Nama kategori maksimal 100 karakter'),
   parentId: z.string().nullable().optional(),
   defaultTeamId: z.string().nullable().optional(),
 });
@@ -151,8 +155,8 @@ const categorySchema = z.object({
 const catalogSchema = z.object({
   id: z.string().optional(),
   categoryId: z.string().min(1, 'Kategori wajib dipilih'),
-  name: z.string().min(3, 'Nama layanan minimal 3 karakter'),
-  description: z.string(),
+  name: z.string().trim().min(3, 'Nama layanan minimal 3 karakter').max(120, 'Nama layanan maksimal 120 karakter'),
+  description: z.string().trim().max(2000, 'Deskripsi maksimal 2000 karakter'),
   ticketType: z.enum(['incident', 'service_request']),
   defaultImpact: z.enum(LEVELS),
   slaPolicyId: z.string().nullable().optional(),
@@ -169,7 +173,12 @@ const catalogSchema = z.object({
 });
 
 const slaTickSchema = z.object({
-  advanceMinutes: z.coerce.number().finite().default(0),
+  advanceMinutes: z.coerce
+    .number()
+    .finite()
+    .min(0, 'Menit tidak boleh negatif')
+    .max(525600, 'Maksimal simulasi 1 tahun (525600 menit)')
+    .default(0),
 });
 
 const createChangeSchema = z.object({
@@ -254,9 +263,14 @@ apiRoutes.post('/tickets', async (c) => {
 
   try {
     const store = getStore();
-    const { attachmentIds, ...input } = body.data;
+    const { attachmentIds, impact, ...input } = body.data;
     const attachments = claimUploads(store, session.id, attachmentIds ?? []);
-    const ticket = engineCreateTicket(store, { ...input, attachments }, userRecord(store, session), new Date());
+    const ticket = engineCreateTicket(
+      store,
+      { ...input, impact: session.role === 'requester' ? undefined : impact, attachments },
+      userRecord(store, session),
+      new Date(),
+    );
     startApprovalChain(store, ticket, new Date());
     if (!(await persistOrFail())) return c.json(DB_ERROR_RESULT, 500);
     return c.json({ ok: true, data: { number: ticket.number, id: ticket.id } }, 201);
@@ -281,9 +295,15 @@ apiRoutes.post('/tickets/bulk-assign', async (c) => {
   try {
     const store = getStore();
     const actor = userRecord(store, session);
-    let count = 0;
+    if (assigneeId) {
+      const targetUser = store.users.get(assigneeId);
+      if (!targetUser?.isActive || targetUser.role === 'requester') {
+        return c.json({ ok: false, error: 'Assignee bukan staf IT aktif' }, 400);
+      }
+    }
 
-    for (const id of ticketIds) {
+    const targets: TicketRecord[] = [];
+    for (const id of new Set(ticketIds)) {
       const ticket = store.tickets.get(id);
       if (!ticket) continue;
       const resource = {
@@ -295,12 +315,24 @@ apiRoutes.post('/tickets/bulk-assign', async (c) => {
       if (session.role === 'agent' && ticket.assigneeId !== null && ticket.assigneeId !== session.id) {
         continue;
       }
+      if (ticket.status === 'closed' || ticket.status === 'cancelled') {
+        return c.json({ ok: false, error: `Tiket ${ticket.number} sudah final` }, 400);
+      }
+      if (assigneeId && ticket.teamId) {
+        const team = store.teams.get(ticket.teamId);
+        if (team && !team.memberIds.includes(assigneeId) && team.leadId !== assigneeId) {
+          return c.json({ ok: false, error: `Assignee bukan anggota tim ${team.name}` }, 400);
+        }
+      }
+      targets.push(ticket);
+    }
+
+    for (const ticket of targets) {
       engineAssignTicket(store, ticket.id, { assigneeId }, actor, new Date());
-      count++;
     }
 
     if (!(await persistOrFail())) return c.json(DB_ERROR_RESULT, 500);
-    return c.json({ ok: true, data: { count } });
+    return c.json({ ok: true, data: { count: targets.length } });
   } catch (err) {
     return errorResponse(c, err, 'Bulk assign gagal');
   }
@@ -612,6 +644,19 @@ apiRoutes.post('/admin/users/:id/role', async (c) => {
   const store = getStore();
   const user = store.users.get(c.req.param('id'));
   if (!user) return c.json({ ok: false, error: 'User tidak ditemukan' }, 404);
+  if (body.data.role === 'requester') {
+    for (const team of store.teams.values()) {
+      if (team.leadId === user.id) {
+        return c.json(
+          { ok: false, error: 'User masih menjadi Head IT tim; pindahkan Head IT terlebih dahulu' },
+          400,
+        );
+      }
+    }
+    for (const team of store.teams.values()) {
+      team.memberIds = team.memberIds.filter((id) => id !== user.id);
+    }
+  }
   user.role = body.data.role;
   if (!(await persistOrFail())) return c.json(DB_ERROR_RESULT, 500);
   return c.json({ ok: true, data: true });
@@ -630,10 +675,10 @@ apiRoutes.post('/admin/teams', async (c) => {
   if (!existing) return c.json({ ok: false, error: 'Tim tidak ditemukan (hanya ada satu Tim IT)' }, 404);
   const isStaff = (id: string) => {
     const u = store.users.get(id);
-    return !!u && u.role !== 'requester';
+    return !!u && u.isActive && u.role !== 'requester';
   };
   if (!isStaff(parsed.leadId) || !parsed.memberIds.every(isStaff)) {
-    return c.json({ ok: false, error: 'Head IT dan anggota harus akun staf IT' }, 400);
+    return c.json({ ok: false, error: 'Head IT dan anggota harus akun staf IT aktif' }, 400);
   }
   existing.name = parsed.name;
   existing.leadId = parsed.leadId;
@@ -664,6 +709,14 @@ apiRoutes.post('/admin/categories', async (c) => {
 
   const parsed = body.data;
   const store = getStore();
+  if (parsed.parentId) {
+    if (parsed.parentId === parsed.id || !store.categories.has(parsed.parentId)) {
+      return c.json({ ok: false, error: 'Kategori induk tidak valid' }, 400);
+    }
+  }
+  if (parsed.defaultTeamId && !store.teams.has(parsed.defaultTeamId)) {
+    return c.json({ ok: false, error: 'Tim default tidak ditemukan' }, 400);
+  }
   if (parsed.id) {
     const existing = store.categories.get(parsed.id);
     if (!existing) return c.json({ ok: false, error: 'Kategori tidak ditemukan' }, 404);
@@ -694,6 +747,12 @@ apiRoutes.post('/admin/catalog', async (c) => {
 
   const parsed = body.data;
   const store = getStore();
+  if (!store.categories.has(parsed.categoryId)) {
+    return c.json({ ok: false, error: 'Kategori layanan tidak ditemukan' }, 400);
+  }
+  if (parsed.slaPolicyId && !store.policies.has(parsed.slaPolicyId)) {
+    return c.json({ ok: false, error: 'Kebijakan SLA tidak ditemukan' }, 400);
+  }
   if (parsed.id) {
     const existing = store.catalog.get(parsed.id);
     if (!existing) return c.json({ ok: false, error: 'Item katalog tidak ditemukan' }, 404);
@@ -815,6 +874,10 @@ apiRoutes.get('/health', async (c) => {
 
 // Worker tick
 apiRoutes.post('/worker/tick', async (c) => {
+  if (!verifyWebhookToken(c)) {
+    const session = requireApiUser(c, ['admin']);
+    if (session instanceof Response) return session;
+  }
   try {
     const store = getStore();
     const result = runSlaTick(store, new Date());
