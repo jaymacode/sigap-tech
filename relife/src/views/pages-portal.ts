@@ -157,11 +157,11 @@ function demoLoginCards(): HtmlContent {
           >
             <div class="field">
               <label for="email" class="label">Email</label>
-              <input id="email" name="email" type="email" class="input" placeholder="nama@sigap.demo" required />
+              <input id="email" name="email" type="email" inputmode="email" autocomplete="email" enterkeyhint="next" class="input" placeholder="nama@sigap.demo" required />
             </div>
             <div class="field">
               <label for="password" class="label">Password</label>
-              <input id="password" name="password" type="password" class="input" value="${DEMO_PASSWORD}" required />
+              <input id="password" name="password" type="password" autocomplete="current-password" enterkeyhint="go" class="input" value="${DEMO_PASSWORD}" required />
             </div>
             <div class="form-error" data-form-error role="alert" hidden></div>
             <button type="submit" class="btn btn-primary w-full">Masuk ke Sistem</button>
@@ -200,24 +200,11 @@ function resolveItemIcon(name: string): IconName {
 const REQUEST_TYPE_META: Readonly<Record<ServiceRequestType, { desc: string; tag?: string }>> = {
   'New Request': { desc: 'Permintaan perangkat, akun, atau layanan baru.' },
   Enhancement: { desc: 'Penambahan fitur atau peningkatan sistem.' },
-  Problem: { desc: 'Gangguan, error, atau kendala operasional.', tag: 'Incident' },
+  Problem: { desc: 'Gangguan, error, atau kendala operasional.', tag: 'Gangguan' },
   'Access Rights': { desc: 'Permintaan atau perubahan hak akses.' },
   'Data Extraction': { desc: 'Penarikan data atau laporan khusus.' },
   Others: { desc: 'Kebutuhan atau pertanyaan IT lainnya.' },
 };
-
-const INTENT_SHORTCUTS: ReadonlyArray<{
-  label: string;
-  hint: string;
-  type: ServiceRequestType;
-  icon: IconName;
-}> = [
-  { label: 'Laporkan Masalah', hint: 'Ada yang error atau tidak berfungsi', type: 'Problem', icon: 'warn' },
-  { label: 'Minta Akses', hint: 'Folder, aplikasi, atau sistem', type: 'Access Rights', icon: 'lock' },
-  { label: 'Permintaan Baru', hint: 'Perangkat, akun, atau layanan', type: 'New Request', icon: 'plus' },
-  { label: 'Tarik Data', hint: 'Data atau laporan khusus', type: 'Data Extraction', icon: 'barChart' },
-  { label: 'Peningkatan Sistem', hint: 'Fitur atau perbaikan baru', type: 'Enhancement', icon: 'wrench' },
-];
 
 function statusHint(status: TicketStatus): string {
   switch (status) {
@@ -309,21 +296,6 @@ export function portalHomePage(opts: {
         </section>`
       : null}
 
-    <section class="stack" aria-labelledby="portal-intent-title">
-      <h2 class="page-h2" id="portal-intent-title">Apa yang ingin Anda lakukan?</h2>
-      <div class="portal-intent-grid">
-        ${INTENT_SHORTCUTS.map(
-          (s) => html`<a href="/portal/new?type=${encodeURIComponent(s.type)}" class="portal-intent-card">
-            <span class="portal-intent-icon">${icon(s.icon, 'icon-sm')}</span>
-            <span class="portal-intent-text">
-              <strong>${s.label}</strong>
-              <span class="text-muted text-xs">${s.hint}</span>
-            </span>
-          </a>`,
-        )}
-      </div>
-    </section>
-
     <section id="services" class="stack-md">
       <div class="row-between-wrap">
         <div class="stack-xs">
@@ -331,13 +303,14 @@ export function portalHomePage(opts: {
             Layanan IT
             <span id="portal-catalog-count" class="tab-count tabular">${items.length}</span>
           </h2>
-          <p class="text-muted text-xs">Pilih bidang layanan, atau cari kendala Anda.</p>
+          <p class="text-muted text-xs">Pilih layanan yang dibutuhkan untuk langsung mengisi formulir.</p>
         </div>
         <div class="search-wrap portal-search-wrap">
           ${icon('search', 'icon-sm search-icon')}
           <input
             id="portal-catalog-search"
             type="search"
+            enterkeyhint="search"
             class="input input-search"
             placeholder="Cari layanan (mis. PC, Share Folder, Email, VPN)..."
             aria-label="Cari layanan di katalog"
@@ -373,7 +346,7 @@ export function portalHomePage(opts: {
         <p class="empty-desc">
           Tidak ada kategori yang cocok dengan pencarian Anda. Coba kata kunci lain atau pilih Others.
         </p>
-        <div class="row-gap-sm">
+        <div class="row-gap-sm wrap justify-center">
           <button type="button" id="portal-search-reset" class="btn btn-secondary btn-sm">
             Reset Pencarian
           </button>
@@ -401,7 +374,7 @@ export function portalHomePage(opts: {
                     <span class="mono text-accent font-bold text-xs">${t.number}</span>
                     ${statusPill(t.status, 'requester')}
                   </div>
-                  <h3 class="card-link-title">${t.title}</h3>
+                  <h3 class="card-link-title" title="${t.title}">${t.title}</h3>
                   <p class="text-muted text-xs">${statusHint(t.status)}</p>
                 </div>
                 <div class="card-link-foot">
@@ -414,15 +387,9 @@ export function portalHomePage(opts: {
         </section>`
       : null}
 
-    <section class="stack" aria-labelledby="portal-process-title">
-      <h2 class="page-h2" id="portal-process-title">Bagaimana prosesnya?</h2>
-      <ol class="portal-process">
-        <li><span class="portal-process-n">1</span><span><strong>Isi form</strong><br /><span class="text-muted text-xs">Pilih layanan &amp; jelaskan kebutuhan</span></span></li>
-        <li><span class="portal-process-n">2</span><span><strong>Acknowledge HOD</strong><br /><span class="text-muted text-xs">Atasan menyetujui permintaan</span></span></li>
-        <li><span class="portal-process-n">3</span><span><strong>Diproses tim IT</strong><br /><span class="text-muted text-xs">Teknisi menindaklanjuti</span></span></li>
-        <li><span class="portal-process-n">4</span><span><strong>Konfirmasi selesai</strong><br /><span class="text-muted text-xs">Anda memastikan hasilnya</span></span></li>
-      </ol>
-    </section>
+    <p class="portal-process-note text-xs text-muted">
+      <strong>Alur layanan:</strong> 1. Isi formulir → 2. Persetujuan atasan (HOD) → 3. Diproses tim IT → 4. Konfirmasi selesai.
+    </p>
   </div>`;
 }
 
@@ -535,7 +502,6 @@ export function portalNewTicketPage(opts: {
       <div class="rf-paper-title">
         <div class="service-card-icon">${icon('file', 'icon-md')}</div>
         <div class="stack-xs">
-          <p class="rf-eyebrow">IT CTII · Internal Service Request Form</p>
           <h1 class="page-h1">Ajukan Permintaan Layanan IT</h1>
           <p class="text-muted text-xs">
             Isi 4 bagian singkat di bawah ini. Kolom bertanda <span class="req">*</span> wajib diisi.
@@ -544,19 +510,19 @@ export function portalNewTicketPage(opts: {
       </div>
       <dl class="form-meta-strip rf-meta">
         <div class="form-meta-cell">
-          <dt class="form-meta-label">No Ticket</dt>
+          <dt class="form-meta-label">Nomor Tiket</dt>
           <dd class="form-meta-val mono text-muted">Dibuat otomatis</dd>
         </div>
         <div class="form-meta-cell">
-          <dt class="form-meta-label">Request By</dt>
+          <dt class="form-meta-label">Pemohon</dt>
           <dd class="form-meta-val" title="${user.name}">${user.name}</dd>
         </div>
         <div class="form-meta-cell">
-          <dt class="form-meta-label">Dept</dt>
+          <dt class="form-meta-label">Departemen</dt>
           <dd class="form-meta-val" title="${user.department}">${user.department}</dd>
         </div>
         <div class="form-meta-cell">
-          <dt class="form-meta-label">Request Date</dt>
+          <dt class="form-meta-label">Tanggal Pengajuan</dt>
           <dd class="form-meta-val tabular">${todayLabel}</dd>
         </div>
       </dl>
@@ -566,6 +532,7 @@ export function portalNewTicketPage(opts: {
       id="new-ticket-form"
       data-ticket-create-form
       data-api-form
+      novalidate
       action="/api/tickets"
       data-method="POST"
       data-redirect-ticket="true"
@@ -576,7 +543,7 @@ export function portalNewTicketPage(opts: {
     >
       <div class="rf-main stack-md">
         <section class="card rf-section" data-rf-section="1" aria-labelledby="rf-s1-title">
-          ${rfStepHead(1, 'Layanan terkait', 'Service / Problem Related to — pilih satu yang paling sesuai.')}
+          ${rfStepHead(1, 'Layanan terkait', 'Pilih satu layanan IT yang paling sesuai dengan kebutuhan Anda.')}
           <div class="rf-section-body">
             <fieldset class="choice-fieldset">
               <legend class="sr-only">Layanan terkait (wajib pilih satu)</legend>
@@ -613,11 +580,12 @@ export function portalNewTicketPage(opts: {
                 required${flag('disabled', !isOthersService)}
               />
             </div>
+            <p class="field-error" data-section-error="1" role="alert" hidden></p>
           </div>
         </section>
 
         <section class="card rf-section" data-rf-section="2" aria-labelledby="rf-s2-title">
-          ${rfStepHead(2, 'Jenis permintaan', 'Service Request Type — apa yang Anda perlukan dari tim IT?')}
+          ${rfStepHead(2, 'Jenis permintaan', 'Pilih apa yang Anda perlukan dari tim IT.')}
           <div class="rf-section-body stack-md">
             <fieldset class="choice-fieldset">
               <legend class="sr-only">Jenis permintaan (wajib pilih satu)</legend>
@@ -637,10 +605,10 @@ export function portalNewTicketPage(opts: {
                       required${flag('checked', typeOpt === selectedType)}
                     />
                     <span class="choice-card-head">
-                      <strong class="choice-card-title">${typeOpt}</strong>
+                      <strong class="choice-card-title">${fm.label}</strong>
                       ${meta.tag ? html`<span class="badge badge-incident">${meta.tag}</span>` : null}
                     </span>
-                    <span class="rf-type-id">${fm.label}</span>
+                    <span class="rf-type-id">${typeOpt}</span>
                     <span class="choice-card-desc">${meta.desc}</span>
                   </label>`;
                 })}
@@ -678,11 +646,12 @@ export function portalNewTicketPage(opts: {
                 )}
               </div>
             </fieldset>
+            <p class="field-error" data-section-error="2" role="alert" hidden></p>
           </div>
         </section>
 
         <section class="card rf-section" data-rf-section="3" aria-labelledby="rf-s3-title">
-          ${rfStepHead(3, 'Detail permintaan', 'Problem / Requirement Description — ceritakan dengan bahasa Anda sendiri.')}
+          ${rfStepHead(3, 'Detail permintaan', 'Ceritakan masalah atau kebutuhan Anda dengan bahasa Anda sendiri.')}
           <div class="rf-section-body stack-md">
             ${items.map((it) => {
               const skip = REDUNDANT_SCHEMA_KEYS[it.id] ?? [];
@@ -786,28 +755,28 @@ export function portalNewTicketPage(opts: {
                 />
                 <span class="dropzone-icon">${icon('upload', 'icon-md text-accent')}</span>
                 <span class="dropzone-text">
-                  <strong>Klik untuk pilih berkas</strong> atau seret ke area ini
+                  <strong>Pilih berkas dari perangkat</strong> atau seret ke sini
                 </span>
                 <span id="att-file-hint" class="text-xs text-muted">Gambar, PDF, teks/CSV/log, Office, ZIP. Maks. ${Math.round(maxAttachmentBytes() / 1024 / 1024)} MB per berkas.</span>
               </label>
               <ul id="att-list" class="att-list" data-att-list aria-live="polite" aria-label="Lampiran terunggah"></ul>
             </div>
+            <p class="field-error" data-section-error="3" role="alert" hidden></p>
           </div>
         </section>
 
         <section class="card rf-section" data-rf-section="4" aria-labelledby="rf-s4-title">
-          ${rfStepHead(4, 'Persetujuan', 'Requested by User & Acknowledge by HOD — pengganti tanda tangan di formulir kertas.')}
+          ${rfStepHead(4, 'Persetujuan', 'Konfirmasi pemohon dan persetujuan atasan (HOD) sebagai pengganti formulir kertas.')}
           <div class="rf-section-body stack-md">
             <div class="rf-note">
               ${icon('shield', 'icon-sm')}
               <p>
-                Atasan (HOD) Anda akan diberi tahu tentang permintaan ini. Tim IT memproses tiket setelah
-                HOD memberikan acknowledgement.
+                Atasan (HOD) Anda akan menerima notifikasi persetujuan. Tim IT mulai memproses setelah atasan menyetujui permintaan ini.
               </p>
             </div>
             <div class="form-grid-2">
               <div class="field">
-                <label for="fd-hod-name" class="label">Nama HOD / atasan <span class="req">*</span></label>
+                <label for="fd-hod-name" class="label">Nama atasan (HOD) <span class="req">*</span></label>
                 <input
                   id="fd-hod-name"
                   name="formData.hod_name"
@@ -820,16 +789,17 @@ export function portalNewTicketPage(opts: {
                 />
               </div>
               <div class="field">
-                <label for="fd-hod-email" class="label">Email HOD <span class="text-muted">(opsional)</span></label>
+                <label for="fd-hod-email" class="label">Email atasan (HOD) <span class="text-muted">(opsional)</span></label>
                 <input
                   id="fd-hod-email"
                   name="formData.hod_email"
                   type="email"
+                  inputmode="email"
                   class="input"
                   autocomplete="off"
                   placeholder="nama@perusahaan.co.id"
                 />
-                <span class="field-hint">Isi agar HOD menerima notifikasi email.</span>
+                <span class="field-hint">Isi agar atasan menerima tautan persetujuan lewat email.</span>
               </div>
             </div>
             <label class="rf-ack">
@@ -837,10 +807,11 @@ export function portalNewTicketPage(opts: {
               <span class="rf-ack-text">
                 <strong>Saya menyatakan informasi di atas benar</strong>
                 <span class="text-xs text-muted">
-                  Berlaku sebagai tanda tangan pemohon (Requested by User): ${user.name} · ${todayLabel}
+                  Berlaku sebagai tanda tangan pemohon: ${user.name} · ${todayLabel}
                 </span>
               </span>
             </label>
+            <p class="field-error" data-section-error="4" role="alert" hidden></p>
           </div>
         </section>
       </div>
@@ -854,17 +825,17 @@ export function portalNewTicketPage(opts: {
           <div class="rf-progress" aria-hidden="true"><span class="rf-progress-bar" data-rf-progress-bar></span></div>
           <ol class="rf-checklist">
             <li data-rf-check="1">${icon('checkCircle', 'icon-xs')}<span>Layanan terkait</span></li>
-            <li data-rf-check="2">${icon('checkCircle', 'icon-xs')}<span>Jenis permintaan & urgensi</span></li>
+            <li data-rf-check="2">${icon('checkCircle', 'icon-xs')}<span>Jenis permintaan &amp; urgensi</span></li>
             <li data-rf-check="3">${icon('checkCircle', 'icon-xs')}<span>Detail permintaan</span></li>
             <li data-rf-check="4">${icon('checkCircle', 'icon-xs')}<span>Persetujuan</span></li>
           </ol>
           <dl class="rf-summary-list">
             <div>
-              <dt>Service / Problem</dt>
+              <dt>Layanan</dt>
               <dd data-rf-sum="service">${selectedItem?.name ?? '—'}</dd>
             </div>
             <div>
-              <dt>Request Type</dt>
+              <dt>Jenis Permintaan</dt>
               <dd data-rf-sum="type">${selectedType ?? '—'}</dd>
             </div>
             <div>
@@ -874,12 +845,12 @@ export function portalNewTicketPage(opts: {
           </dl>
           <div class="rf-sign-table" role="group" aria-label="Tanda tangan">
             <div class="rf-sign-cell">
-              <span class="rf-sign-label">Requested by User</span>
+              <span class="rf-sign-label">Pemohon</span>
               <strong class="rf-sign-name">${user.name}</strong>
               <span class="rf-sign-status" data-rf-sum="ack">Belum dikonfirmasi</span>
             </div>
             <div class="rf-sign-cell">
-              <span class="rf-sign-label">Acknowledge by HOD</span>
+              <span class="rf-sign-label">Persetujuan HOD</span>
               <strong class="rf-sign-name" data-rf-sum="hod">—</strong>
               <span class="rf-sign-status">Menunggu setelah dikirim</span>
             </div>
@@ -893,6 +864,12 @@ export function portalNewTicketPage(opts: {
           </div>
         </div>
       </aside>
+      <div class="rf-mobile-bar" aria-label="Status pengisian formulir">
+        <span class="text-xs font-bold tabular" data-rf-progress-text>0 dari 4 bagian lengkap</span>
+        <button type="submit" class="btn btn-primary">
+          ${icon('send', 'icon-xs')} <span>Kirim Permintaan</span>
+        </button>
+      </div>
     </form>
   </div>`;
 }
@@ -959,10 +936,11 @@ export function portalTicketsPage(
 
       <form method="get" action="/portal/tickets" class="portal-search-bar">
         ${statusFilter ? html`<input type="hidden" name="status" value="${statusFilter}" />` : null}
-        <div class="search-wrap" style="flex:1">
+        <div class="search-wrap flex-1">
           ${icon('search', 'icon-xs search-icon')}
           <input
             type="search"
+            enterkeyhint="search"
             name="q"
             class="input input-sm input-search"
             value="${searchQuery ?? ''}"
@@ -997,7 +975,7 @@ export function portalTicketsPage(
                 <div class="row-gap-sm wrap text-xs">
                   <span class="mono text-accent font-bold">${t.number}</span>
                   <span class="badge ${t.type === 'incident' ? 'badge-incident' : 'badge-request'}">
-                    ${t.type === 'incident' ? 'Problem' : 'Request'}
+                    ${t.type === 'incident' ? 'Gangguan' : 'Permintaan'}
                   </span>
                   <span class="text-muted">${t.category}</span>
                   ${t.status === 'pending'
@@ -1089,7 +1067,7 @@ export function portalTicketDetailPage(
         <div class="row-gap-sm wrap">
           <span class="mono text-accent font-bold text-md">${detail.number}</span>
           <span class="badge ${detail.type === 'incident' ? 'badge-incident' : 'badge-request'}">
-            ${detail.type === 'incident' ? 'Problem / Incident' : 'Service Request'}
+            ${detail.type === 'incident' ? 'Gangguan' : 'Permintaan Layanan'}
           </span>
           <span class="badge">${detail.category}</span>
         </div>
@@ -1213,19 +1191,19 @@ export function portalTicketDetailPage(
       <div class="stack-md">
         <div class="card portal-paper-form">
           <div class="card-header">
-            <h2 class="section-label">Formulir IT Request</h2>
+            <h2 class="section-label">Formulir Permintaan IT</h2>
           </div>
           <div class="card-body stack">
             <div class="kv-grid paper-grid">
-              <div class="kv-item"><span class="kv-label">No Ticket</span><span class="kv-value mono">${detail.number}</span></div>
-              <div class="kv-item"><span class="kv-label">Dept</span><span class="kv-value">${detail.requesterInfo.department || 'Belum diisi'}</span></div>
-              <div class="kv-item"><span class="kv-label">Request By</span><span class="kv-value">${detail.requesterInfo.name}</span></div>
-              <div class="kv-item"><span class="kv-label">Request Date</span><span class="kv-value">${formatDateTime(detail.createdAt)}</span></div>
-              <div class="kv-item"><span class="kv-label">Service / Problem Related to</span><span class="kv-value">${detail.category}${paperOther(detail, 'Layanan Lainnya')}</span></div>
-              <div class="kv-item"><span class="kv-label">Service Request Type</span><span class="kv-value">${reqTypeField?.value ?? 'Belum diisi'}${paperOther(detail, 'Jenis Permintaan Lainnya')}</span></div>
+              <div class="kv-item"><span class="kv-label">Nomor Tiket</span><span class="kv-value mono">${detail.number}</span></div>
+              <div class="kv-item"><span class="kv-label">Departemen</span><span class="kv-value">${detail.requesterInfo.department || 'Belum diisi'}</span></div>
+              <div class="kv-item"><span class="kv-label">Pemohon</span><span class="kv-value">${detail.requesterInfo.name}</span></div>
+              <div class="kv-item"><span class="kv-label">Tanggal Pengajuan</span><span class="kv-value">${formatDateTime(detail.createdAt)}</span></div>
+              <div class="kv-item"><span class="kv-label">Layanan Terkait</span><span class="kv-value">${detail.category}${paperOther(detail, 'Layanan Lainnya')}</span></div>
+              <div class="kv-item"><span class="kv-label">Jenis Permintaan</span><span class="kv-value">${reqTypeField?.value ?? 'Belum diisi'}${paperOther(detail, 'Jenis Permintaan Lainnya')}</span></div>
             </div>
             <div class="stack-xs">
-              <h3 class="kv-label">Problem / Requirement Description</h3>
+              <h3 class="kv-label">Deskripsi Masalah / Kebutuhan</h3>
               <p class="prose-pre">${detail.description}</p>
             </div>
             <div class="stack-xs">
@@ -1238,10 +1216,10 @@ export function portalTicketDetailPage(
             </div>
             ${detail.approval.receivedBy || detail.approval.actionPlan || detail.approval.impactAnalysis
               ? html`<div class="kv-grid paper-grid">
-                  <div class="kv-item"><span class="kv-label">Receive By</span><span class="kv-value">${detail.approval.receivedBy ?? '—'}</span></div>
-                  <div class="kv-item"><span class="kv-label">Receive Date</span><span class="kv-value">${detail.approval.receivedAt ? formatDateTime(detail.approval.receivedAt) : '—'}</span></div>
-                  <div class="kv-item"><span class="kv-label">Action to be taken</span><span class="kv-value prose-pre">${detail.approval.actionPlan ?? '—'}</span></div>
-                  <div class="kv-item"><span class="kv-label">Impact and Analysis</span><span class="kv-value prose-pre">${detail.approval.impactAnalysis ?? '—'}</span></div>
+                  <div class="kv-item"><span class="kv-label">Diterima Oleh</span><span class="kv-value">${detail.approval.receivedBy ?? '—'}</span></div>
+                  <div class="kv-item"><span class="kv-label">Tanggal Diterima</span><span class="kv-value">${detail.approval.receivedAt ? formatDateTime(detail.approval.receivedAt) : '—'}</span></div>
+                  <div class="kv-item"><span class="kv-label">Rencana Tindakan IT</span><span class="kv-value prose-pre">${detail.approval.actionPlan ?? '—'}</span></div>
+                  <div class="kv-item"><span class="kv-label">Analisis Dampak</span><span class="kv-value prose-pre">${detail.approval.impactAnalysis ?? '—'}</span></div>
                 </div>`
               : null}
             ${extraFields.length > 0
@@ -1287,7 +1265,7 @@ export function portalTicketDetailPage(
                   ? html`<div class="csat-saved">
                       <div class="row-gap-xs">
                         ${[1, 2, 3, 4, 5].map(
-                          (s) => html`<span class="star ${s <= detail.csat!.score ? 'is-filled' : ''}">★</span>`,
+                          (s) => html`<span class="star ${s <= detail.csat!.score ? 'is-filled' : ''}" aria-hidden="true">★</span>`,
                         )}
                         <strong class="mono text-xs">${detail.csat.score} dari 5 Bintang</strong>
                       </div>
@@ -1316,7 +1294,9 @@ export function portalTicketDetailPage(
                         )}
                         <span class="text-muted text-xs" id="csat-label">(Sangat Puas)</span>
                       </div>
+                      <label for="csat-comment" class="sr-only">Komentar atau saran tambahan</label>
                       <textarea
+                        id="csat-comment"
                         name="comment"
                         rows="2"
                         class="textarea"
@@ -1340,12 +1320,17 @@ export function portalTicketDetailPage(
 
         ${!isFinal
           ? (() => {
-              const replyHeader = html`
-                <h2 class="card-title row-gap-sm">
-                  ${icon('message', 'icon-sm text-accent')}
-                  <span>Kirim Pesan / Balasan ke Tim IT</span>
-                </h2>
-                <p class="card-desc">Tambahkan informasi atau respon atas pertanyaan dari teknisi yang menangani.</p>
+              const replyHeaderContent = (heading: boolean) => html`
+                ${heading
+                  ? html`<h2 class="card-title row-gap-sm">
+                      ${icon('message', 'icon-sm text-accent')}
+                      <span>Kirim Pesan / Balasan ke Tim IT</span>
+                    </h2>`
+                  : html`<span class="card-title row-gap-sm">
+                      ${icon('message', 'icon-sm text-accent')}
+                      <span>Kirim Pesan / Balasan ke Tim IT</span>
+                    </span>`}
+                <span class="card-desc">Tambahkan informasi atau respon atas pertanyaan dari teknisi yang menangani.</span>
               `;
               const replyBody = html`<div class="card-body">
                 <form
@@ -1357,6 +1342,7 @@ export function portalTicketDetailPage(
                   class="stack"
                 >
                   <input type="hidden" name="visibility" value="public" />
+                  <label for="portal-reply-body" class="sr-only">Pesan atau balasan untuk tim IT</label>
                   <textarea
                     id="portal-reply-body"
                     name="body"
@@ -1376,12 +1362,15 @@ export function portalTicketDetailPage(
                 </form>
               </div>`;
               return isResolved
-                ? html`<details class="card">
-                    <summary class="card-header">${replyHeader}</summary>
+                ? html`<details class="card details-card">
+                    <summary class="card-header row-between">
+                      <span class="stack-xs">${replyHeaderContent(false)}</span>
+                      ${icon('chevronRight', 'icon-sm text-muted details-chevron')}
+                    </summary>
                     ${replyBody}
                   </details>`
                 : html`<div class="card">
-                    <div class="card-header">${replyHeader}</div>
+                    <div class="card-header">${replyHeaderContent(true)}</div>
                     ${replyBody}
                   </div>`;
             })()
@@ -1395,7 +1384,7 @@ export function portalTicketDetailPage(
           </div>
           <div class="card-body stack-sm text-xs">
             <div class="row-between">
-              <span class="text-muted">No Ticket</span>
+              <span class="text-muted">Nomor Tiket</span>
               <strong class="mono">${detail.number}</strong>
             </div>
             <div class="row-between">
@@ -1403,12 +1392,12 @@ export function portalTicketDetailPage(
               ${statusPill(detail.status, 'requester')}
             </div>
             <div class="row-between">
-              <span class="text-muted">Service / Problem</span>
+              <span class="text-muted">Layanan</span>
               <strong>${detail.category}</strong>
             </div>
             ${reqTypeField
               ? html`<div class="row-between">
-                  <span class="text-muted">Request Type</span>
+                  <span class="text-muted">Jenis Permintaan</span>
                   <strong>${reqTypeField.value}</strong>
                 </div>`
               : null}

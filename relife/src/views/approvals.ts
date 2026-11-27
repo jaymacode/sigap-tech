@@ -60,7 +60,7 @@ export function approvalSignoffs(detail: TicketDetail): HtmlContent {
       : null;
   return html`<div class="apr-grid" aria-label="Rantai persetujuan">
     <div class="apr-col apr-approved">
-      <span class="kv-label">Requested by User</span>
+      <span class="kv-label">Diajukan Pemohon</span>
       <strong>${detail.requesterInfo.name}</strong>
       <span class="badge badge-ok">Diajukan</span>
       <span class="text-muted text-xs">${formatDateTime(detail.createdAt)}</span>
@@ -117,8 +117,8 @@ function decideDialog(row: ApprovalRowView, presdirEmail: boolean): HtmlContent 
   return html`<dialog id="dlg-apr-decide-${row.id}" class="modal">
     <div class="modal-box">
       <div class="modal-head">
-        <h3 class="modal-title">Approval by IT HOD</h3>
-        <p class="modal-desc">Setujui atau tolak Action to be taken &amp; Impact and Analysis.</p>
+        <h3 class="modal-title">Persetujuan Head IT</h3>
+        <p class="modal-desc">Setujui atau tolak Rencana Tindakan &amp; Analisis Dampak tim IT.</p>
       </div>
       <form data-api-form action="/api/approvals/${row.id}/decide" data-method="POST" data-reload="true"
         data-success-msg="Keputusan Head IT disimpan" class="stack">
@@ -229,31 +229,31 @@ export function agentApprovalCard(detail: TicketDetail, user: SessionUser): Html
       ${statusLine ? html`<p class="apr-status text-xs">${icon('clock', 'icon-xs')} <span>${statusLine}</span></p>` : null}
       ${actions.length ? html`<div class="row-gap-xs wrap">${actions}</div>` : null}
       ${canSubmitItHod && !itFilled && active
-        ? html`<p class="text-muted text-xs">Isi Action to be taken &amp; Impact and Analysis untuk mengajukan ke Head IT.</p>`
+        ? html`<p class="text-muted text-xs">Isi Rencana Tindakan &amp; Analisis Dampak di bawah untuk mengajukan ke Head IT.</p>`
         : null}
       <hr class="sep" />
       <div class="kv-grid">
-        <div class="kv-item"><span class="kv-label">Receive By</span><span class="kv-value">${a.receivedBy ?? 'Belum diterima'}</span></div>
-        <div class="kv-item"><span class="kv-label">Receive Date</span><span class="kv-value">${a.receivedAt ? formatDateTime(a.receivedAt) : '—'}</span></div>
+        <div class="kv-item"><span class="kv-label">Diterima Oleh</span><span class="kv-value">${a.receivedBy ?? 'Belum diterima'}</span></div>
+        <div class="kv-item"><span class="kv-label">Tanggal Diterima</span><span class="kv-value">${a.receivedAt ? formatDateTime(a.receivedAt) : '—'}</span></div>
       </div>
       ${editable
         ? html`<form data-api-form action="/api/tickets/${detail.id}/it-part" data-method="POST" data-reload="true"
             data-success-msg="Bagian IT disimpan" class="stack-sm">
             <div class="field">
-              <label class="label" for="it-action">Action to be taken</label>
+              <label class="label" for="it-action">Rencana Tindakan (Action Plan)</label>
               <textarea id="it-action" name="actionPlan" rows="3" class="textarea">${a.actionPlan ?? ''}</textarea>
             </div>
             <div class="field">
-              <label class="label" for="it-impact">Impact and Analysis</label>
+              <label class="label" for="it-impact">Analisis Dampak (Impact Analysis)</label>
               <textarea id="it-impact" name="impactAnalysis" rows="3" class="textarea">${a.impactAnalysis ?? ''}</textarea>
             </div>
             <div class="form-error" data-form-error role="alert" hidden></div>
             <div><button type="submit" class="btn btn-secondary btn-sm">Simpan Bagian IT</button></div>
           </form>`
         : html`<div class="stack-xs">
-            <span class="kv-label">Action to be taken</span>
+            <span class="kv-label">Rencana Tindakan (Action Plan)</span>
             <p class="prose-pre">${a.actionPlan ?? '—'}</p>
-            <span class="kv-label">Impact and Analysis</span>
+            <span class="kv-label">Analisis Dampak (Impact Analysis)</span>
             <p class="prose-pre">${a.impactAnalysis ?? '—'}</p>
             ${itLocked ? html`<span class="text-muted text-xs">${icon('lock', 'icon-xs')} Terkunci setelah diajukan ke Head IT.</span>` : null}
           </div>`}
@@ -313,30 +313,30 @@ export function approvePage(p: ApprovePageProps): HtmlContent {
         <p class="text-muted text-xs">${APPROVAL_STEP_LABELS[p.step]} · untuk ${p.approverName}</p>
       </div>
       <div class="kv-grid">
-        <div class="kv-item"><span class="kv-label">Request By</span><span class="kv-value">${t.requesterName}</span></div>
-        <div class="kv-item"><span class="kv-label">Dept</span><span class="kv-value">${t.department}</span></div>
-        <div class="kv-item"><span class="kv-label">Service Request Type</span><span class="kv-value">${t.requestType}</span></div>
-        <div class="kv-item"><span class="kv-label">Request Date</span><span class="kv-value">${formatDateTime(t.createdAt)}</span></div>
+        <div class="kv-item"><span class="kv-label">Pemohon</span><span class="kv-value">${t.requesterName}</span></div>
+        <div class="kv-item"><span class="kv-label">Departemen</span><span class="kv-value">${t.department}</span></div>
+        <div class="kv-item"><span class="kv-label">Jenis Permintaan</span><span class="kv-value">${t.requestType}</span></div>
+        <div class="kv-item"><span class="kv-label">Tanggal Pengajuan</span><span class="kv-value">${formatDateTime(t.createdAt)}</span></div>
       </div>
       <div class="stack-xs">
-        <span class="kv-label">Problem / Requirement Description</span>
+        <span class="kv-label">Deskripsi Masalah / Kebutuhan</span>
         <p class="prose-pre">${t.description}</p>
       </div>
       ${p.step === 'presdir'
         ? html`<div class="stack-xs">
-            <span class="kv-label">Action to be taken</span><p class="prose-pre">${t.actionPlan ?? '—'}</p>
-            <span class="kv-label">Impact and Analysis</span><p class="prose-pre">${t.impactAnalysis ?? '—'}</p>
+            <span class="kv-label">Rencana Tindakan IT</span><p class="prose-pre">${t.actionPlan ?? '—'}</p>
+            <span class="kv-label">Analisis Dampak</span><p class="prose-pre">${t.impactAnalysis ?? '—'}</p>
           </div>`
         : null}
-      <form method="post" class="stack">
+      <form method="post" class="stack" data-approve-form>
         <div class="field">
           <label class="label" for="apr-note">Catatan (wajib bila menolak)</label>
           <textarea id="apr-note" name="note" rows="3" class="textarea">${p.note ?? ''}</textarea>
         </div>
-        ${p.error ? html`<div class="form-error" role="alert">${p.error}</div>` : null}
-        <div class="row-gap-sm wrap">
-          <button type="submit" name="decision" value="approve" class="btn btn-success btn-sm">Setujui</button>
-          <button type="submit" name="decision" value="reject" class="btn btn-secondary btn-sm text-danger"${flag('formnovalidate', true)}>Tolak</button>
+        <div class="form-error" data-form-error role="alert"${p.error ? '' : ' hidden'}>${p.error ?? ''}</div>
+        <div class="apr-public-actions">
+          <button type="submit" name="decision" value="approve" class="btn btn-success">Setujui Permintaan</button>
+          <button type="submit" name="decision" value="reject" class="btn btn-secondary text-danger"${flag('formnovalidate', true)}>Tolak</button>
         </div>
       </form>
     </div></div>`;

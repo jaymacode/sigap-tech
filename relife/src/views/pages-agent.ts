@@ -136,6 +136,7 @@ export function queuePage(
             ${icon('search', 'icon-xs search-icon')}
             <input
               type="search"
+              enterkeyhint="search"
               name="q"
               class="input input-sm input-search"
               value="${filters.q ?? ''}"
@@ -166,51 +167,79 @@ export function queuePage(
 
         <details class="popover filter-popover">
           <summary class="btn btn-secondary btn-sm">Filter Lainnya</summary>
-          <div class="popover-panel filter-panel">
-            <select class="select select-sm" data-queue-filter="status" aria-label="Filter Status">
-              <option value=""${flag('selected', statusVal === '')}>Status: Semua</option>
-              <option value="active"${flag('selected', statusVal === 'active')}>Semua Aktif</option>
-              <option value="new"${flag('selected', statusVal === 'new')}>New</option>
-              <option value="assigned"${flag('selected', statusVal === 'assigned')}>Assigned</option>
-              <option value="in_progress"${flag('selected', statusVal === 'in_progress')}>In Progress</option>
-              <option value="pending"${flag('selected', statusVal === 'pending')}>Pending</option>
-              <option value="resolved"${flag('selected', statusVal === 'resolved')}>Resolved</option>
-              <option value="closed"${flag('selected', statusVal === 'closed')}>Closed</option>
-              <option value="cancelled"${flag('selected', statusVal === 'cancelled')}>Cancelled</option>
-            </select>
+          <form method="get" action="/queue" class="popover-panel filter-panel">
+            <input type="hidden" name="view" value="${currentView}" />
+            ${filters.q ? html`<input type="hidden" name="q" value="${filters.q}" />` : null}
+            ${prioVal ? html`<input type="hidden" name="priority" value="${prioVal}" />` : null}
+            ${filters.assignee ? html`<input type="hidden" name="assignee" value="${filters.assignee}" />` : null}
+            <div class="popover-head">
+              <strong>Filter &amp; Urutkan</strong>
+              <button type="button" class="btn btn-ghost btn-sm" data-close-popover>Tutup</button>
+            </div>
+            <div class="field">
+              <label for="qf-status" class="label">Status</label>
+              <select id="qf-status" name="status" class="select select-sm">
+                <option value=""${flag('selected', statusVal === '')}>Status: Semua</option>
+                <option value="active"${flag('selected', statusVal === 'active')}>Semua Aktif</option>
+                <option value="new"${flag('selected', statusVal === 'new')}>New</option>
+                <option value="assigned"${flag('selected', statusVal === 'assigned')}>Assigned</option>
+                <option value="in_progress"${flag('selected', statusVal === 'in_progress')}>In Progress</option>
+                <option value="pending"${flag('selected', statusVal === 'pending')}>Pending</option>
+                <option value="resolved"${flag('selected', statusVal === 'resolved')}>Resolved</option>
+                <option value="closed"${flag('selected', statusVal === 'closed')}>Closed</option>
+                <option value="cancelled"${flag('selected', statusVal === 'cancelled')}>Cancelled</option>
+              </select>
+            </div>
 
-            <select class="select select-sm" data-queue-filter="type" aria-label="Filter Tipe">
-              <option value=""${flag('selected', !filters.type)}>Tipe: Semua</option>
-              <option value="incident"${flag('selected', filters.type === 'incident')}>Incident</option>
-              <option value="service_request"${flag('selected', filters.type === 'service_request')}>Request</option>
-            </select>
+            <div class="field">
+              <label for="qf-type" class="label">Tipe Tiket</label>
+              <select id="qf-type" name="type" class="select select-sm">
+                <option value=""${flag('selected', !filters.type)}>Tipe: Semua</option>
+                <option value="incident"${flag('selected', filters.type === 'incident')}>Incident</option>
+                <option value="service_request"${flag('selected', filters.type === 'service_request')}>Request</option>
+              </select>
+            </div>
 
-            <select class="select select-sm" data-queue-filter="age" aria-label="Filter Umur">
-              <option value=""${flag('selected', !filters.age)}>Umur: Semua</option>
-              <option value="lt1"${flag('selected', filters.age === 'lt1')}>&lt; 1 hari kerja</option>
-              <option value="1to3"${flag('selected', filters.age === '1to3')}>1–3 hari kerja</option>
-              <option value="3to7"${flag('selected', filters.age === '3to7')}>3–7 hari kerja</option>
-              <option value="gt7"${flag('selected', filters.age === 'gt7')}>&gt; 7 hari kerja</option>
-            </select>
+            <div class="field">
+              <label for="qf-age" class="label">Umur Tiket</label>
+              <select id="qf-age" name="age" class="select select-sm">
+                <option value=""${flag('selected', !filters.age)}>Umur: Semua</option>
+                <option value="lt1"${flag('selected', filters.age === 'lt1')}>&lt; 1 hari kerja</option>
+                <option value="1to3"${flag('selected', filters.age === '1to3')}>1–3 hari kerja</option>
+                <option value="3to7"${flag('selected', filters.age === '3to7')}>3–7 hari kerja</option>
+                <option value="gt7"${flag('selected', filters.age === 'gt7')}>&gt; 7 hari kerja</option>
+              </select>
+            </div>
 
-            <select class="select select-sm" data-queue-filter="sla" aria-label="Filter SLA">
-              <option value=""${flag('selected', !filters.sla)}>SLA: Semua</option>
-              <option value="met"${flag('selected', filters.sla === 'met')}>SLA Terpenuhi</option>
-              <option value="breached"${flag('selected', filters.sla === 'breached')}>SLA Breached</option>
-            </select>
+            <div class="field">
+              <label for="qf-sla" class="label">Status SLA</label>
+              <select id="qf-sla" name="sla" class="select select-sm">
+                <option value=""${flag('selected', !filters.sla)}>SLA: Semua</option>
+                <option value="met"${flag('selected', filters.sla === 'met')}>SLA Terpenuhi</option>
+                <option value="breached"${flag('selected', filters.sla === 'breached')}>SLA Breached</option>
+              </select>
+            </div>
 
-            <select class="select select-sm" data-queue-filter="sort" aria-label="Urutkan">
-              <option value="sla"${flag('selected', filters.sort === 'sla')}>Urut: SLA Terdekat</option>
-              <option value="priority"${flag('selected', filters.sort === 'priority')}>Urut: Prioritas</option>
-              <option value="created"${flag('selected', filters.sort === 'created')}>Urut: Dibuat</option>
-              <option value="updated"${flag('selected', filters.sort === 'updated')}>Urut: Diperbarui</option>
-            </select>
-          </div>
+            <div class="field">
+              <label for="qf-sort" class="label">Urutkan</label>
+              <select id="qf-sort" name="sort" class="select select-sm">
+                <option value="sla"${flag('selected', filters.sort === 'sla')}>Urut: SLA Terdekat</option>
+                <option value="priority"${flag('selected', filters.sort === 'priority')}>Urut: Prioritas</option>
+                <option value="created"${flag('selected', filters.sort === 'created')}>Urut: Dibuat</option>
+                <option value="updated"${flag('selected', filters.sort === 'updated')}>Urut: Diperbarui</option>
+              </select>
+            </div>
+
+            <div class="row-gap-sm">
+              <a href="/queue?view=${currentView}" class="btn btn-secondary btn-sm flex-1">Reset</a>
+              <button type="submit" class="btn btn-primary btn-sm flex-1">Terapkan</button>
+            </div>
+          </form>
         </details>
       </div>
 
       <div class="toolbar-meta">
-        <button type="button" id="queue-refresh" class="icon-btn" title="Muat ulang data (Auto 30d)">
+        <button type="button" id="queue-refresh" class="icon-btn" title="Muat ulang data (Auto 30d)" aria-label="Muat ulang antrean tiket">
           ${icon('refresh', 'icon-xs')}
         </button>
         <span class="mono text-xs text-muted">Total: <strong>${queueResult.total}</strong></span>
@@ -234,6 +263,7 @@ export function queuePage(
         <span id="bulk-count" class="mono font-bold text-accent">0 tiket terpilih</span>
       </div>
       <div class="row-gap-sm">
+        <label for="bulk-assignee" class="sr-only">Pilih staff tujuan penugasan massal</label>
         <select id="bulk-assignee" class="select select-sm">
           <option value="">-- Tugaskan Massal ke Staff --</option>
           ${assignees.map(
@@ -282,14 +312,14 @@ export function queuePage(
                     </td>
                     <td>
                       <div class="ticket-cell">
-                        <span class="ticket-cell-title">${t.title}</span>
+                        <span class="ticket-cell-title" title="${t.title}">${t.title}</span>
                         <span class="ticket-cell-cat">${t.category}</span>
                       </div>
                     </td>
-                    <td class="text-muted truncate-cell">${t.requester.name}</td>
+                    <td class="text-muted truncate-cell" title="${t.requester.name}">${t.requester.name}</td>
                     <td>${priorityBadge(t.priority)}</td>
                     <td>${statusPill(t.status, 'agent')}</td>
-                    <td class="truncate-cell">
+                    <td class="truncate-cell" title="${t.assignee?.name ?? 'Unassigned'}">
                       ${t.assignee
                         ? t.assignee.name
                         : html`<span class="row-gap-xs">
@@ -321,17 +351,33 @@ export function queuePage(
             ${queueResult.items.map((t) => {
               const pSla = primarySla(t);
               const cal = calendars[pSla.calendarId];
-              return html`<a href="/tickets/${t.number}" class="card mobile-card">
-                <div class="row-between">
-                  <span class="mono text-accent font-bold text-xs">${t.number}</span>
-                  <div class="row-gap-xs">${priorityBadge(t.priority)}${statusPill(t.status, 'agent')}</div>
-                </div>
-                <h2 class="mobile-card-title">${t.title}</h2>
+              return html`<div class="card mobile-card">
+                <a href="/tickets/${t.number}" class="mobile-card-link">
+                  <div class="row-between">
+                    <span class="mono text-accent font-bold text-xs">${t.number}</span>
+                    <div class="row-gap-xs">${priorityBadge(t.priority)}${statusPill(t.status, 'agent')}</div>
+                  </div>
+                  <h2 class="mobile-card-title">${t.title}</h2>
+                  <span class="text-xs text-muted">${t.category} · Pemohon: ${t.requester.name}</span>
+                </a>
                 <div class="mobile-card-foot">
-                  <span class="text-muted">${t.assignee?.name ?? 'Unassigned'}</span>
-                  ${slaIndicator(pSla, cal, now, false)}
+                  <span class="row-gap-xs">
+                    <span class="text-muted">${t.assignee?.name ?? 'Unassigned'}</span>
+                    ${!t.assignee && currentUserId
+                      ? html`<button
+                          type="button"
+                          class="btn btn-secondary btn-sm"
+                          data-api-btn
+                          data-url="/api/tickets/${t.id}/assign"
+                          data-body="${JSON.stringify({ assigneeId: currentUserId })}"
+                          data-reload="true"
+                          data-success-msg="Tiket berhasil diambil"
+                        >Ambil</button>`
+                      : null}
+                  </span>
+                  ${slaIndicator(pSla, cal, now, true)}
                 </div>
-              </a>`;
+              </div>`;
             })}
           </div>
 
@@ -400,7 +446,7 @@ export function agentTicketDetailPage(
 
     <div class="card detail-bar">
       <div class="row-between-wrap">
-        <div class="row-gap-sm">
+        <div class="row-gap-sm wrap">
           <span class="mono text-accent font-bold text-md">${detail.number}</span>
           ${priorityBadge(detail.priority, true)}
           ${statusPill(detail.status, 'agent')}
@@ -509,7 +555,7 @@ export function agentTicketDetailPage(
         ${isActive && canWork
           ? html`<div class="card composer-card">
               <div class="card-header row-between-wrap">
-                <div class="row-gap-xs" data-tab-group="comment-mode" role="tablist" aria-label="Mode komentar">
+                <div class="row-gap-xs wrap" data-tab-group="comment-mode" role="tablist" aria-label="Mode komentar">
                   <button type="button" role="tab" aria-selected="true" class="tab is-active" data-tab="public">
                     ${icon('message', 'icon-xs')} <span>Balas Requester (Publik)</span>
                   </button>
@@ -529,7 +575,9 @@ export function agentTicketDetailPage(
                   class="stack"
                 >
                   <input type="hidden" name="visibility" value="public" id="comment-visibility" />
+                  <label for="agent-reply-body" class="sr-only">Isi balasan atau catatan internal</label>
                   <textarea
+                    id="agent-reply-body"
                     name="body"
                     rows="3"
                     class="textarea"
@@ -539,7 +587,7 @@ export function agentTicketDetailPage(
                   ></textarea>
                   ${attachmentPicker('agent-reply-att')}
                   <div class="form-error" data-form-error role="alert" hidden></div>
-                  <div class="row-between">
+                  <div class="row-between-wrap">
                     <span class="text-muted text-xs">
                       ${detail.firstResponseAt === null
                         ? 'Catatan: Balasan publik pertama akan menandai First Response tercapai.'
@@ -711,7 +759,7 @@ export function agentTicketDetailPage(
               ${icon('user', 'icon-sm text-muted')}
               <strong>${detail.requesterInfo.name}</strong>
             </div>
-            <p class="text-muted">${detail.requesterInfo.email}</p>
+            <p class="text-muted break-anywhere">${detail.requesterInfo.email}</p>
             <hr class="sep" />
             <div class="row-between">
               <span class="text-muted">Departemen:</span>
@@ -947,36 +995,38 @@ function agentTicketModals(detail: TicketDetail): HtmlContent {
             <span>Prioritas hasil matriks:</span>
             <strong id="classify-preview-badge" class="badge badge-${detail.priority.toLowerCase()}">${detail.priority}</strong>
           </div>
-          <table class="matrix-mini" aria-label="Referensi matriks prioritas ITIL">
-            <thead>
-              <tr>
-                <th>Impact \ Urgency</th>
-                <th>High</th>
-                <th>Medium</th>
-                <th>Low</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <th>High</th>
-                <td><span class="badge badge-p1">P1</span></td>
-                <td><span class="badge badge-p2">P2</span></td>
-                <td><span class="badge badge-p3">P3</span></td>
-              </tr>
-              <tr>
-                <th>Medium</th>
-                <td><span class="badge badge-p2">P2</span></td>
-                <td><span class="badge badge-p3">P3</span></td>
-                <td><span class="badge badge-p4">P4</span></td>
-              </tr>
-              <tr>
-                <th>Low</th>
-                <td><span class="badge badge-p3">P3</span></td>
-                <td><span class="badge badge-p4">P4</span></td>
-                <td><span class="badge badge-p4">P4</span></td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="table-wrap">
+            <table class="matrix-mini" aria-label="Referensi matriks prioritas ITIL">
+              <thead>
+                <tr>
+                  <th>Impact \ Urgency</th>
+                  <th>High</th>
+                  <th>Medium</th>
+                  <th>Low</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th>High</th>
+                  <td><span class="badge badge-p1">P1</span></td>
+                  <td><span class="badge badge-p2">P2</span></td>
+                  <td><span class="badge badge-p3">P3</span></td>
+                </tr>
+                <tr>
+                  <th>Medium</th>
+                  <td><span class="badge badge-p2">P2</span></td>
+                  <td><span class="badge badge-p3">P3</span></td>
+                  <td><span class="badge badge-p4">P4</span></td>
+                </tr>
+                <tr>
+                  <th>Low</th>
+                  <td><span class="badge badge-p3">P3</span></td>
+                  <td><span class="badge badge-p4">P4</span></td>
+                  <td><span class="badge badge-p4">P4</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
           <div class="form-error" data-form-error role="alert" hidden></div>
           <div class="modal-foot">
             <button type="button" class="btn btn-secondary btn-sm" data-close-dialog>Batal</button>
@@ -1006,13 +1056,16 @@ export function dashboardPage(data: DashboardData): HtmlContent {
         </p>
       </div>
 
-      <div class="range-pills">
+      <nav class="range-pills" aria-label="Rentang waktu metrik">
         ${([7, 30, 90] as const).map(
-          (d) => html`<a href="/dashboard?range=${d}" class="range-pill${data.rangeDays === d ? ' is-active' : ''}">
+          (d) => html`<a
+            href="/dashboard?range=${d}"
+            class="range-pill${data.rangeDays === d ? ' is-active' : ''}"${data.rangeDays === d ? ' aria-current="page"' : ''}
+          >
             ${d} Hari
           </a>`,
         )}
-      </div>
+      </nav>
     </div>
 
     <div class="grid-kpi">
@@ -1111,7 +1164,7 @@ function holidayManager(data: AdminData): HtmlContent {
     </div>
     <div class="card-body stack-md">
       ${missing.map(
-        (y) => html`<div class="callout-warn" role="alert"><strong>Belum ada hari libur ${y}</strong> &mdash; SLA akan menghitung tanggal merah sebagai hari kerja. Tambahkan lewat form atau impor di bawah.</div>`,
+        (y) => html`<div class="callout-warn" role="note"><strong>Belum ada hari libur ${y}</strong> &mdash; SLA akan menghitung tanggal merah sebagai hari kerja. Tambahkan lewat form atau impor di bawah.</div>`,
       )}
 
       <form class="holiday-add" method="post" action="/api/admin/holidays" data-api-form data-reload="true" data-success-msg="Hari libur ditambahkan">
@@ -1125,7 +1178,7 @@ function holidayManager(data: AdminData): HtmlContent {
         </div>
         <div class="field">
           <label for="hol-type" class="label">Jenis</label>
-          <select id="hol-type" name="type" class="input input-sm">
+          <select id="hol-type" name="type" class="select select-sm">
             <option value="libur_nasional">Libur nasional</option>
             <option value="cuti_bersama">Cuti bersama</option>
           </select>
@@ -1138,7 +1191,7 @@ function holidayManager(data: AdminData): HtmlContent {
         <summary class="text-xs font-bold">Impor massal (tempel daftar)</summary>
         <div class="stack-sm" data-holiday-import>
           <label for="hol-import-text" class="label">Satu baris per hari libur: <span class="mono">YYYY-MM-DD Nama</span></label>
-          <textarea id="hol-import-text" class="input mono" rows="6" data-holiday-import-text placeholder="2027-01-01 Tahun Baru Masehi"></textarea>
+          <textarea id="hol-import-text" class="textarea mono" rows="6" data-holiday-import-text placeholder="2027-01-01 Tahun Baru Masehi"></textarea>
           <div class="holiday-preview" data-holiday-preview aria-live="polite"></div>
           <div class="form-error" data-form-error role="alert" hidden></div>
           <div class="row-between">
@@ -1197,7 +1250,7 @@ export function adminPage(data: AdminData): HtmlContent {
 
     <div class="grid-kpi">
       ${kpiTile({ title: 'Pengguna Aktif', value: `${activeUsers}/${data.users.length}`, subtitle: 'Akun dapat login', href: '#users' })}
-      ${kpiTile({ title: 'Tim IT', value: (team?.memberIds.length ?? 0) + (team?.leadId ? 1 : 0), subtitle: `Head IT + anggota · auto-assign ${team?.autoAssign ? 'on' : 'off'}`, href: '#teams' })}
+      ${kpiTile({ title: 'Tim IT', value: (team?.memberIds.length ?? 0) + (team?.leadId ? 1 : 0), subtitle: `Head IT + anggota · auto-assign ${team?.autoAssign ? 'aktif' : 'nonaktif'}`, href: '#teams' })}
       ${kpiTile({ title: 'SLA Policy', value: data.policies.length, subtitle: `${data.calendars.length} kalender`, href: '#sla' })}
       ${kpiTile({ title: 'Katalog Layanan', value: `${activeCatalog}/${data.catalog.length}`, subtitle: 'Layanan aktif di portal', href: '#catalog' })}
       ${kpiTile({ title: 'SLA Berjalan', value: data.stats.slaRunning, subtitle: 'Tiket terbuka', status: 'ok', href: '#system' })}
@@ -1240,7 +1293,7 @@ export function adminPage(data: AdminData): HtmlContent {
               <div class="search-wrap">
                 ${icon('search', 'icon-sm search-icon')}
                 <label for="admin-user-search" class="sr-only">Cari pengguna</label>
-                <input id="admin-user-search" type="search" class="input input-sm input-search" placeholder="Cari nama, email, departemen..." data-admin-user-filter />
+                <input id="admin-user-search" type="search" enterkeyhint="search" class="input input-sm input-search" placeholder="Cari nama, email, departemen..." data-admin-user-filter />
               </div>
               <label for="admin-user-role" class="sr-only">Filter role</label>
               <select id="admin-user-role" class="select select-sm" data-admin-user-filter>
@@ -1253,8 +1306,9 @@ export function adminPage(data: AdminData): HtmlContent {
                 <option value="active">Aktif</option>
                 <option value="inactive">Nonaktif</option>
               </select>
+              <button type="button" id="admin-user-reset" class="btn btn-ghost btn-sm" hidden>Reset filter</button>
             </div>
-            <span class="text-muted text-xs" id="admin-user-count" aria-live="polite">${data.users.length} pengguna</span>
+            <span class="text-muted text-xs tabular" id="admin-user-count" aria-live="polite">${data.users.length} pengguna</span>
           </div>
           <div class="table-scroll max-h-lg admin-table-wrap">
             <table class="table admin-table">
@@ -1371,17 +1425,21 @@ export function adminPage(data: AdminData): HtmlContent {
                 </div>
                 <fieldset class="field">
                   <legend class="label">Anggota Tim IT (${team.memberIds.length})</legend>
-                  ${itStaff.map(
-                    (u) => html`<label class="row-gap-sm text-xs">
-                      <input type="checkbox" name="memberIds" value="${u.id}"${flag('checked', team.memberIds.includes(u.id))} />
-                      <span>${u.name}</span>
-                      <span class="badge admin-role admin-role-${u.role}">${ADMIN_ROLE_LABELS[u.role] ?? u.role}</span>
-                    </label>`,
-                  )}
+                  <div class="team-member-list">
+                    ${itStaff.map(
+                      (u) => html`<label class="team-member-row text-xs">
+                        <span class="row-gap-sm">
+                          <input type="checkbox" name="memberIds" value="${u.id}"${flag('checked', team.memberIds.includes(u.id))} />
+                          <span class="font-bold">${u.name}</span>
+                        </span>
+                        <span class="badge admin-role admin-role-${u.role}">${ADMIN_ROLE_LABELS[u.role] ?? u.role}</span>
+                      </label>`,
+                    )}
+                  </div>
                   <span class="field-hint">Head IT otomatis dikeluarkan dari daftar anggota. Atur role (Head IT / Anggota IT) di tab Pengguna.</span>
                 </fieldset>
                 <div class="form-error" data-form-error role="alert" hidden></div>
-                <div class="modal-foot">
+                <div class="form-actions">
                   <button type="submit" class="btn btn-primary btn-sm">Simpan Tim IT</button>
                 </div>
               </form>
@@ -1433,9 +1491,9 @@ export function adminPage(data: AdminData): HtmlContent {
                               const id = `sla-${pol.id}-${p}-${key}`;
                               return html`<div class="sla-field">
                                 <label class="sr-only" for="${id}">${label} ${p} (nilai)</label>
-                                <input id="${id}" class="input input-sm" type="number" min="1" step="1" required data-sla-value="${key}" value="${inHours ? mins / 60 : mins}" />
+                                <input id="${id}" class="input input-sm" type="number" inputmode="numeric" min="1" step="1" required data-sla-value="${key}" value="${inHours ? mins / 60 : mins}" />
                                 <label class="sr-only" for="${id}-unit">${label} ${p} (satuan)</label>
-                                <select id="${id}-unit" class="input input-sm" data-sla-unit="${key}">
+                                <select id="${id}-unit" class="select select-sm" data-sla-unit="${key}">
                                   <option value="1"${flag('selected', !inHours)}>menit</option>
                                   <option value="60"${flag('selected', inHours)}>jam</option>
                                 </select>
@@ -1448,7 +1506,7 @@ export function adminPage(data: AdminData): HtmlContent {
                               <td>${slaField('resolution', 'Resolusi', tgt.resolutionMinutes)}</td>
                               <td>
                                 <label class="sr-only" for="sla-${pol.id}-${p}-cal">Kalender ${p}</label>
-                                <select id="sla-${pol.id}-${p}-cal" class="input input-sm" data-sla-cal>
+                                <select id="sla-${pol.id}-${p}-cal" class="select select-sm" data-sla-cal>
                                   ${data.calendars.map((cal) => html`<option value="${cal.id}" data-kind="${cal.kind}"${flag('selected', cal.id === tgt.calendarId)}>${cal.name}</option>`)}
                                 </select>
                               </td>
@@ -1464,7 +1522,7 @@ export function adminPage(data: AdminData): HtmlContent {
                       <button type="submit" class="btn btn-primary btn-sm">Simpan Target</button>
                     </div>
                   </form>
-                  <p class="text-xs text-muted">
+                  <p class="sla-usage-foot text-xs text-muted">
                     <strong>Dipakai oleh:</strong>
                     ${usedBy.length ? usedBy.map((c) => c.name).join(', ') : 'Belum ada item katalog'}
                   </p>
@@ -1506,7 +1564,7 @@ export function adminPage(data: AdminData): HtmlContent {
                             <span class="admin-service-icon">${icon(ic, 'icon-sm')}</span>
                             <div class="stack-xs">
                               <strong>${item.name}</strong>
-                              <span class="text-muted text-xs">Kategori: ${cat?.name ?? '—'}</span>
+                              <span class="text-muted text-xs" title="${item.description}">Kategori: ${cat?.name ?? '—'} · ${item.description}</span>
                             </div>
                           </div>
                         </td>
@@ -1534,23 +1592,22 @@ export function adminPage(data: AdminData): HtmlContent {
             <h2 class="card-title">Kategori Layanan &amp; Masalah</h2>
             <p class="card-desc">Struktur klasifikasi tiket dan routing otomatis ke Tim IT.</p>
           </div>
-          <div class="card-body">
-            ${data.categories.length === 0 ? html`<p class="text-muted text-xs">Belum ada kategori.</p>` : null}
-            <div class="list-card">
-              ${data.categories.map((cat) => {
-                const parent = data.categories.find((c) => c.id === cat.parentId);
-                return html`<div class="list-row">
-                  <div class="row-gap-sm">
-                    ${icon('folder', 'icon-sm text-accent')}
-                    <strong>${cat.name}</strong>
-                    ${parent
-                      ? html`<span class="text-muted text-xs">(Induk: ${parent.name})</span>`
-                      : html`<span class="badge badge-accent">Kategori Utama</span>`}
-                  </div>
-                </div>`;
-              })}
-            </div>
-          </div>
+          ${data.categories.length === 0
+            ? html`<div class="card-body"><p class="text-muted text-xs">Belum ada kategori.</p></div>`
+            : html`<div class="list-card">
+                ${data.categories.map((cat) => {
+                  const parent = data.categories.find((c) => c.id === cat.parentId);
+                  return html`<div class="list-row">
+                    <div class="row-gap-sm">
+                      ${icon('folder', 'icon-sm text-accent')}
+                      <strong>${cat.name}</strong>
+                      ${parent
+                        ? html`<span class="text-muted text-xs">(Induk: ${parent.name})</span>`
+                        : html`<span class="badge badge-accent">Kategori Utama</span>`}
+                    </div>
+                  </div>`;
+                })}
+              </div>`}
         </div>
       </div>
 
@@ -1584,7 +1641,7 @@ export function adminPage(data: AdminData): HtmlContent {
               </div>
 
               <div class="row-between-wrap">
-                <div class="row-gap-sm">
+                <div class="row-gap-sm wrap">
                   <label for="sla-tick-minutes" class="label">Simulasi Waktu (Offset):</label>
                   <select id="sla-tick-minutes" class="select select-sm">
                     <option value="0">Waktu Nyata (0m)</option>
@@ -1609,21 +1666,23 @@ export function adminPage(data: AdminData): HtmlContent {
               <p class="card-desc">Antrean email notifikasi yang dikirim worker (retry hingga 5 kali).</p>
             </div>
             <div class="card-body stack">
-              <div class="grid-4">
+              <div class="grid-3">
                 ${kpiTile({ title: 'Antre', value: data.stats.mail.queued })}
-                ${kpiTile({ title: 'Terkirim', value: data.stats.mail.sent })}
-                ${kpiTile({ title: 'Gagal', value: data.stats.mail.failed })}
+                ${kpiTile({ title: 'Terkirim', value: data.stats.mail.sent, status: 'ok' })}
+                ${kpiTile({ title: 'Gagal', value: data.stats.mail.failed, status: data.stats.mail.failed > 0 ? 'breach' : 'neutral' })}
               </div>
               ${data.stats.mail.recentFailures.length
                 ? html`<div class="text-xs stack-sm">
                     <strong>10 kegagalan terakhir</strong>
-                    ${data.stats.mail.recentFailures.map(
-                      (f) => html`<div class="row-between-wrap">
-                        <span class="mono">${f.to}</span>
-                        <span>${f.subject}</span>
-                        <span class="text-muted">${f.attempts}x — ${f.error}</span>
-                      </div>`,
-                    )}
+                    <div class="mail-fail-list">
+                      ${data.stats.mail.recentFailures.map(
+                        (f) => html`<div class="mail-fail-row">
+                          <span class="mono font-bold">${f.to}</span>
+                          <span>${f.subject}</span>
+                          <span class="text-danger">${f.attempts}x — ${f.error}</span>
+                        </div>`,
+                      )}
+                    </div>
                   </div>`
                 : html`<p class="text-xs text-muted">Tidak ada email gagal.</p>`}
             </div>
@@ -1677,9 +1736,9 @@ export function notificationsPage(
             const href = isAgent ? `/tickets/${n.ticketNumber}` : `/portal/tickets/${n.ticketNumber}`;
             return html`<div class="list-row${isUnread ? ' is-unread' : ''}">
               <div class="row-gap-sm">
-                <span class="unread-dot${isUnread ? '' : ' is-transparent'}"></span>
+                <span class="unread-dot${isUnread ? '' : ' is-transparent'}" aria-hidden="true"></span>
                 <div class="stack-xs">
-                  <strong class="text-xs">${n.title}</strong>
+                  <a href="${href}" data-notif-read="${n.id}" class="link-plain text-xs">${n.title}</a>
                   <span class="text-muted text-xs">
                     ${formatDateTime(n.createdAt)} (${formatRelative(n.createdAt, now)})
                   </span>

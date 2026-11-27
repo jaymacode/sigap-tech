@@ -1,6 +1,69 @@
 // Relife client behaviors — zero-dependency Vanilla ES Module
 const THEME_KEY = 'sigap-theme';
 const TOAST_KEY = 'sigap-toast';
+const DRAFT_KEY = 'sigap-new-ticket-draft';
+
+function prefersReducedMotion() {
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+}
+
+function setSubmitBusy(btn, busy) {
+  if (!(btn instanceof HTMLElement)) return;
+  if (busy) {
+    if (!btn.dataset.origHtml) btn.dataset.origHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    btn.textContent = 'Mengirim…';
+  } else {
+    btn.disabled = false;
+    btn.removeAttribute('aria-busy');
+    if (btn.dataset.origHtml) {
+      btn.innerHTML = btn.dataset.origHtml;
+      delete btn.dataset.origHtml;
+    }
+  }
+}
+
+let lastDialogTrigger = null;
+function openDialog(dlg, triggerEl = document.activeElement) {
+  if (!(dlg instanceof HTMLDialogElement)) return;
+  lastDialogTrigger = triggerEl instanceof HTMLElement ? triggerEl : null;
+  dlg.showModal();
+  if (dlg.id === 'dlg-cmdk') {
+    document.getElementById('cmdk-input')?.focus();
+  }
+}
+
+document.addEventListener('close', (e) => {
+  if (e.target instanceof HTMLDialogElement && lastDialogTrigger?.isConnected) {
+    lastDialogTrigger.focus();
+    lastDialogTrigger = null;
+  }
+}, true);
+
+function confirmModal(msg, triggerEl) {
+  const dlg = document.getElementById('dlg-confirm');
+  if (!(dlg instanceof HTMLDialogElement)) return Promise.resolve(confirm(msg));
+  const msgEl = document.getElementById('dlg-confirm-msg');
+  if (msgEl) msgEl.textContent = msg;
+  const okBtn = dlg.querySelector('[data-confirm-ok]');
+  const cancelBtn = dlg.querySelector('[data-confirm-cancel]');
+  return new Promise((resolve) => {
+    const cleanup = (res) => {
+      okBtn?.removeEventListener('click', onOk);
+      cancelBtn?.removeEventListener('click', onCancel);
+      dlg.removeEventListener('close', onClose);
+      resolve(res);
+    };
+    const onOk = () => { dlg.close('ok'); cleanup(true); };
+    const onCancel = () => { dlg.close('cancel'); cleanup(false); };
+    const onClose = () => cleanup(dlg.returnValue === 'ok');
+    okBtn?.addEventListener('click', onOk);
+    cancelBtn?.addEventListener('click', onCancel);
+    dlg.addEventListener('close', onClose);
+    openDialog(dlg, triggerEl);
+  });
+}
 
 function applyTheme(theme) {
   document.documentElement.classList.toggle('dark', theme === 'dark');
@@ -8,6 +71,20 @@ function applyTheme(theme) {
 
 const savedTheme = localStorage.getItem(THEME_KEY);
 if (savedTheme === 'dark' || savedTheme === 'light') applyTheme(savedTheme);
+
+// Keep mobile agent nav drawer collapsed on narrow viewports, always open on desktop
+{
+  const mobileNav = document.querySelector('[data-mobile-nav]');
+  if (mobileNav) {
+    const mq = window.matchMedia('(max-width: 840px)');
+    const syncNav = () => {
+      if (mq.matches) mobileNav.removeAttribute('open');
+      else mobileNav.setAttribute('open', '');
+    };
+    syncNav();
+    mq.addEventListener?.('change', syncNav);
+  }
+}
 
 export function showToast(msg, type = 'info') {
   if (!msg) return;
@@ -145,9 +222,13 @@ function uploadAttachment(list, file, maxBytes) {
       }
       chip.classList.remove('is-uploading');
       chip.dataset.attId = json.data.id;
+      chip.dataset.attName = json.data.fileName;
+      chip.dataset.attSize = String(json.data.size || 0);
       label.textContent = `${json.data.fileName} (${Math.max(1, Math.round(json.data.size / 1024))} KB)`;
       progress.remove();
       status.textContent = '';
+      const rf = list.closest('#new-ticket-form');
+      if (rf instanceof HTMLFormElement) saveRequestDraft(rf);
     })
     .catch((err) => fail(err.message || 'Unggah gagal'));
 }
@@ -205,6 +286,16 @@ function navigateQueueFilter(key, value, resetPage = true) {
   location.href = qs ? `/queue?${qs}` : '/queue';
 }
 
+const CMDK_STATUS_LABELS = {
+  new: 'Baru',
+  assigned: 'Ditugaskan',
+  in_progress: 'Dikerjakan',
+  pending: 'Menunggu',
+  resolved: 'Selesai',
+  closed: 'Ditutup',
+  cancelled: 'Dibatalkan',
+};
+
 // Command palette search (debounced)
 let cmdkTimer = null;
 function renderCmdkResults(hits) {
@@ -213,8 +304,7 @@ function renderCmdkResults(hits) {
   box.replaceChildren();
   if (!hits.length) {
     const empty = document.createElement('p');
-    empty.className = 'muted';
-    empty.style.padding = '12px';
+    empty.className = 'cmdk-hint';
     empty.textContent = 'Tidak ada tiket yang cocok.';
     box.appendChild(empty);
     return;
@@ -250,7 +340,7 @@ function renderCmdkResults(hits) {
     if (hit.status) {
       const s = document.createElement('span');
       s.className = `pill pill-${hit.status}`;
-      s.textContent = hit.status;
+      s.textContent = CMDK_STATUS_LABELS[hit.status] || hit.status;
       right.appendChild(s);
     }
     a.append(left, right);
@@ -317,6 +407,8 @@ function filterAdminUsers() {
   if (empty) empty.hidden = shown > 0;
   const count = document.getElementById('admin-user-count');
   if (count) count.textContent = `${shown} pengguna`;
+  const resetBtn = document.getElementById('admin-user-reset');
+  if (resetBtn) resetBtn.hidden = !q && !role && !status;
 }
 
 function selectCsatStar(starBtn, focus = false) {
@@ -367,12 +459,22 @@ document.addEventListener('click', async (e) => {
   const openBtn = target.closest('[data-open-dialog]');
   if (openBtn) {
     const dlg = document.getElementById(openBtn.dataset.openDialog);
-    if (dlg instanceof HTMLDialogElement) dlg.showModal();
+    openDialog(dlg, openBtn);
     return;
   }
   const closeBtn = target.closest('[data-close-dialog]');
   if (closeBtn) {
     closeBtn.closest('dialog')?.close();
+    return;
+  }
+
+  const closePop = target.closest('[data-close-popover]');
+  if (closePop) {
+    const pop = closePop.closest('details.popover');
+    if (pop) {
+      pop.removeAttribute('open');
+      pop.querySelector('summary')?.focus();
+    }
     return;
   }
 
@@ -431,7 +533,7 @@ document.addEventListener('click', async (e) => {
   if (focusBtn) {
     const dest = document.getElementById(focusBtn.dataset.focusTarget);
     if (dest instanceof HTMLElement) {
-      dest.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      dest.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' });
       dest.focus({ preventScroll: true });
     }
     return;
@@ -444,8 +546,20 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
+  if (target.closest('#admin-user-reset')) {
+    const s = document.getElementById('admin-user-search');
+    const r = document.getElementById('admin-user-role');
+    const st = document.getElementById('admin-user-status');
+    if (s instanceof HTMLInputElement) s.value = '';
+    if (r instanceof HTMLSelectElement) r.value = '';
+    if (st instanceof HTMLSelectElement) st.value = '';
+    filterAdminUsers();
+    s?.focus();
+    return;
+  }
+
   if (target.closest('#queue-refresh')) {
-    location.reload();
+    refreshQueueInPlace();
     return;
   }
 
@@ -458,6 +572,8 @@ document.addEventListener('click', async (e) => {
       fetch(`/api/attachments/${encodeURIComponent(chip.dataset.attId)}`, { method: 'DELETE' }).catch(() => {});
     }
     chip?.remove();
+    const rf = picker?.closest('#new-ticket-form');
+    if (rf instanceof HTMLFormElement) saveRequestDraft(rf);
     picker?.querySelector('[data-att-input]')?.focus();
     return;
   }
@@ -567,7 +683,7 @@ document.addEventListener('click', async (e) => {
   // Generic API button
   const apiBtn = target.closest('button[data-api-btn]');
   if (apiBtn) {
-    if (apiBtn.dataset.confirm && !confirm(apiBtn.dataset.confirm)) return;
+    if (apiBtn.dataset.confirm && !(await confirmModal(apiBtn.dataset.confirm, apiBtn))) return;
     apiBtn.disabled = true;
     try {
       const body = apiBtn.dataset.body ? JSON.parse(apiBtn.dataset.body) : {};
@@ -692,22 +808,206 @@ function updateRequestSummary(form) {
     form.querySelector(`[data-rf-section="${step}"]`)?.classList.toggle('is-done', done[step]);
     form.querySelector(`[data-rf-check="${step}"]`)?.classList.toggle('is-done', done[step]);
   }
-  const progressText = form.querySelector('[data-rf-progress-text]');
-  if (progressText) progressText.textContent = `${count} dari 4 bagian lengkap`;
+  form.querySelectorAll('[data-rf-progress-text]').forEach((el) => {
+    el.textContent = `${count} dari 4 bagian lengkap`;
+  });
   const bar = form.querySelector('[data-rf-progress-bar]');
   if (bar instanceof HTMLElement) bar.style.width = `${(count / 4) * 100}%`;
 }
 
-// Event delegation: submit (generic API forms + dynamic new-ticket form)
+function clearRequestErrors(form) {
+  form.querySelectorAll('.rf-section.has-error').forEach((s) => s.classList.remove('has-error'));
+  form.querySelectorAll('.field.has-error').forEach((f) => f.classList.remove('has-error'));
+  form.querySelectorAll('[data-section-error]').forEach((el) => {
+    el.textContent = '';
+    el.hidden = true;
+  });
+}
+
+function validateRequestForm(form) {
+  clearRequestErrors(form);
+  const errors = [];
+  const addErr = (secNum, msg, focusEl, fieldEl) => {
+    errors.push({ secNum, msg, focusEl });
+    const sec = form.querySelector(`[data-rf-section="${secNum}"]`);
+    sec?.classList.add('has-error');
+    if (fieldEl) fieldEl.classList.add('has-error');
+    const errEl = form.querySelector(`[data-section-error="${secNum}"]`);
+    if (errEl && !errEl.textContent) {
+      errEl.textContent = msg;
+      errEl.hidden = false;
+    }
+  };
+
+  const service = checkedValue(form, 'catalogItemId');
+  if (!service) {
+    addErr(1, 'Pilih salah satu layanan IT yang tersedia.', form.querySelector('input[name="catalogItemId"]'));
+  } else if (service.value === 'cat-item-others' && !fieldValue(form, 'formData.service_other')) {
+    const el = form.elements.namedItem('formData.service_other');
+    addErr(1, 'Sebutkan layanan lainnya yang Anda maksud.', el, el?.closest('.field'));
+  }
+
+  const type = checkedValue(form, 'formData.service_request_type');
+  if (!type) {
+    addErr(2, 'Pilih jenis permintaan Anda.', form.querySelector('input[name="formData.service_request_type"]'));
+  } else if (type.value === 'Others' && !fieldValue(form, 'formData.request_type_other')) {
+    const el = form.elements.namedItem('formData.request_type_other');
+    addErr(2, 'Sebutkan jenis permintaan lainnya.', el, el?.closest('.field'));
+  }
+  if (!checkedValue(form, 'urgency')) {
+    addErr(2, 'Pilih tingkat urgensi permintaan.', form.querySelector('input[name="urgency"]'));
+  }
+
+  for (const reqField of form.querySelectorAll('[data-service-fields]:not([hidden]) [required]:not(:disabled)')) {
+    if (!String(reqField.value || '').trim()) {
+      addErr(3, 'Lengkapi info tambahan layanan yang wajib diisi.', reqField, reqField.closest('.field'));
+      break;
+    }
+  }
+  const titleEl = form.querySelector('#title');
+  if (titleEl instanceof HTMLInputElement && titleEl.value.trim().length < 5) {
+    addErr(3, 'Ringkasan singkat minimal 5 karakter.', titleEl, titleEl.closest('.field'));
+  }
+  const descEl = form.querySelector('#description');
+  if (descEl instanceof HTMLTextAreaElement && descEl.value.trim().length < 10) {
+    addErr(3, 'Deskripsi masalah/kebutuhan minimal 10 karakter.', descEl, descEl.closest('.field'));
+  }
+
+  const hodEl = form.querySelector('#fd-hod-name');
+  if (hodEl instanceof HTMLInputElement && !hodEl.value.trim()) {
+    addErr(4, 'Masukkan nama atasan (HOD).', hodEl, hodEl.closest('.field'));
+  }
+  const ackEl = form.querySelector('input[name="requesterAck"]');
+  if (ackEl instanceof HTMLInputElement && !ackEl.checked) {
+    addErr(4, 'Centang pernyataan konfirmasi pemohon sebelum mengirim.', ackEl);
+  }
+
+  if (errors.length) {
+    const first = errors[0];
+    setFormError(form, `Ada ${errors.length} bagian yang belum lengkap: ${first.msg}`);
+    const sec = form.querySelector(`[data-rf-section="${first.secNum}"]`);
+    sec?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'nearest' });
+    if (first.focusEl instanceof HTMLElement) first.focusEl.focus({ preventScroll: true });
+    return false;
+  }
+  return true;
+}
+
+function saveRequestDraft(form) {
+  try {
+    const data = serializeForm(form);
+    delete data.requesterAck;
+    data._attachments = Array.from(form.querySelectorAll('[data-att-list] [data-att-id]'), (el) => ({
+      id: el.dataset.attId,
+      name: el.dataset.attName || el.querySelector('.att-chip-name')?.textContent || 'Lampiran',
+      size: Number(el.dataset.attSize || 0),
+    }));
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(data));
+  } catch { /* ignore */ }
+}
+
+function restoreRequestDraft(form) {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY);
+    if (!raw) return;
+    const draft = JSON.parse(raw);
+    if (!draft || typeof draft !== 'object') return;
+    const params = new URLSearchParams(location.search);
+    if (!params.has('service') && draft.catalogItemId) {
+      const r = form.querySelector(`input[name="catalogItemId"][value="${CSS.escape(draft.catalogItemId)}"]`);
+      if (r instanceof HTMLInputElement) r.checked = true;
+    }
+    if (!params.has('type') && draft['formData.service_request_type']) {
+      const r = form.querySelector(`input[name="formData.service_request_type"][value="${CSS.escape(draft['formData.service_request_type'])}"]`);
+      if (r instanceof HTMLInputElement) r.checked = true;
+    }
+    syncRequestForm(form);
+    for (const [k, v] of Object.entries(draft)) {
+      if (k === '_attachments' || k === 'catalogItemId' || k === 'formData.service_request_type' || typeof v !== 'string') continue;
+      const el = form.elements.namedItem(k);
+      if (el instanceof HTMLInputElement && el.type === 'radio') {
+        const r = form.querySelector(`input[name="${CSS.escape(k)}"][value="${CSS.escape(v)}"]`);
+        if (r instanceof HTMLInputElement) r.checked = true;
+      } else if (
+        (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) &&
+        !el.disabled
+      ) {
+        if (k === 'title' && el.value.trim()) continue;
+        el.value = v;
+        if (k === 'title' && v.trim()) el.dataset.autoTitle = 'false';
+      }
+    }
+    if (Array.isArray(draft._attachments)) {
+      const list = form.querySelector('[data-att-list]');
+      if (list) {
+        for (const att of draft._attachments) {
+          if (!att?.id || list.querySelector(`[data-att-id="${CSS.escape(att.id)}"]`)) continue;
+          const chip = document.createElement('li');
+          chip.className = 'att-chip';
+          chip.dataset.attId = att.id;
+          chip.dataset.attName = att.name;
+          chip.dataset.attSize = String(att.size || 0);
+          const lbl = document.createElement('span');
+          lbl.className = 'att-chip-name';
+          lbl.textContent = att.size ? `${att.name} (${Math.max(1, Math.round(att.size / 1024))} KB)` : att.name;
+          const rm = document.createElement('button');
+          rm.type = 'button';
+          rm.className = 'btn btn-ghost btn-sm';
+          rm.dataset.attRemove = '';
+          rm.setAttribute('aria-label', `Hapus ${att.name}`);
+          rm.textContent = '×';
+          chip.append(lbl, rm);
+          list.appendChild(chip);
+        }
+      }
+    }
+    const desc = form.querySelector('#description');
+    if (desc instanceof HTMLTextAreaElement) {
+      desc.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    updateRequestSummary(form);
+  } catch { /* ignore */ }
+}
+
+// Event delegation: submit (approve token confirm + generic API forms + dynamic new-ticket form)
 document.addEventListener('submit', async (e) => {
   const form = e.target;
   if (!(form instanceof HTMLFormElement)) return;
 
+  if (form.matches('[data-approve-form]') && form.dataset.confirmed !== '1') {
+    e.preventDefault();
+    setFormError(form, '');
+    const decision = e.submitter instanceof HTMLButtonElement ? e.submitter.value : 'approve';
+    const note = String(form.querySelector('[name="note"]')?.value || '').trim();
+    if (decision === 'reject' && note.length < 3) {
+      setFormError(form, 'Harap isi alasan penolakan minimal 3 karakter sebelum menolak.');
+      form.querySelector('[name="note"]')?.focus();
+      return;
+    }
+    const msg = decision === 'reject'
+      ? 'Tolak permintaan IT ini? Tindakan tidak dapat dibatalkan.'
+      : 'Setujui permintaan IT ini? Link persetujuan hanya berlaku satu kali.';
+    if (!(await confirmModal(msg, e.submitter))) return;
+    let hiddenDec = form.querySelector('input[data-apr-decision]');
+    if (!hiddenDec) {
+      hiddenDec = document.createElement('input');
+      hiddenDec.type = 'hidden';
+      hiddenDec.name = 'decision';
+      hiddenDec.dataset.aprDecision = '1';
+      form.appendChild(hiddenDec);
+    }
+    hiddenDec.value = decision;
+    form.dataset.confirmed = '1';
+    form.submit();
+    return;
+  }
+
   if (form.id === 'new-ticket-form') {
     e.preventDefault();
     setFormError(form, '');
+    if (!validateRequestForm(form)) return;
     const submitBtn = form.querySelector('[type="submit"]');
-    if (submitBtn) submitBtn.disabled = true;
+    setSubmitBusy(submitBtn, true);
     try {
       const raw = serializeForm(form);
       const formData = {};
@@ -729,11 +1029,12 @@ document.addEventListener('submit', async (e) => {
       };
       if (!payload.attachmentIds) throw new Error('Tunggu hingga semua lampiran selesai diunggah');
       const json = await apiFetch('/api/tickets', 'POST', payload);
+      try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
       saveToastForReload('Pengajuan tiket berhasil dikirim', 'ok');
       location.href = `/portal/tickets/${encodeURIComponent(json.data.number)}`;
     } catch (err) {
       setFormError(form, err.message);
-      if (submitBtn) submitBtn.disabled = false;
+      setSubmitBusy(submitBtn, false);
     }
     return;
   }
@@ -742,7 +1043,7 @@ document.addEventListener('submit', async (e) => {
   e.preventDefault();
   setFormError(form, '');
   const submitBtn = form.querySelector('[type="submit"]');
-  if (submitBtn) submitBtn.disabled = true;
+  setSubmitBusy(submitBtn, true);
   try {
     const method = (form.getAttribute('method') || 'POST').toUpperCase();
     const action = form.getAttribute('action') || location.pathname;
@@ -766,7 +1067,7 @@ document.addEventListener('submit', async (e) => {
   } catch (err) {
     setFormError(form, err.message);
   } finally {
-    if (submitBtn) submitBtn.disabled = false;
+    setSubmitBusy(submitBtn, false);
   }
 });
 
@@ -798,7 +1099,12 @@ document.addEventListener('change', async (e) => {
   }
 
   if (el instanceof HTMLInputElement && el.closest('#new-ticket-form')) {
-    syncRequestForm(el.closest('#new-ticket-form'), el.name);
+    const rf = el.closest('#new-ticket-form');
+    if (rf instanceof HTMLFormElement) {
+      syncRequestForm(rf, el.name);
+      clearRequestErrors(rf);
+      saveRequestDraft(rf);
+    }
     if (['catalogItemId', 'formData.service_request_type', 'urgency', 'requesterAck'].includes(el.name)) return;
   }
 
@@ -842,7 +1148,11 @@ document.addEventListener('input', (e) => {
     // Typing takes over the title; clearing it hands control back to auto-fill.
     el.dataset.autoTitle = el.value.trim() === '' ? 'true' : 'false';
     const rf = el.closest('#new-ticket-form');
-    if (rf) updateRequestSummary(rf);
+    if (rf instanceof HTMLFormElement) {
+      clearRequestErrors(rf);
+      updateRequestSummary(rf);
+      saveRequestDraft(rf);
+    }
     return;
   }
 
@@ -854,12 +1164,21 @@ document.addEventListener('input', (e) => {
       counter.classList.toggle('is-ok', len >= 10);
     }
     const rf = el.closest('#new-ticket-form');
-    if (rf) updateRequestSummary(rf);
+    if (rf instanceof HTMLFormElement) {
+      clearRequestErrors(rf);
+      updateRequestSummary(rf);
+      saveRequestDraft(rf);
+    }
     return;
   }
 
   if (el.closest('#new-ticket-form')) {
-    updateRequestSummary(el.closest('#new-ticket-form'));
+    const rf = el.closest('#new-ticket-form');
+    if (rf instanceof HTMLFormElement) {
+      clearRequestErrors(rf);
+      updateRequestSummary(rf);
+      saveRequestDraft(rf);
+    }
     return;
   }
 
@@ -873,8 +1192,7 @@ document.addEventListener('input', (e) => {
       if (box) {
         box.replaceChildren();
         const hint = document.createElement('p');
-        hint.className = 'muted';
-        hint.style.padding = '12px';
+        hint.className = 'cmdk-hint';
         hint.textContent = 'Ketik minimal 2 karakter untuk mencari tiket.';
         box.appendChild(hint);
       }
@@ -933,10 +1251,7 @@ document.addEventListener('keydown', (e) => {
     if (dlg instanceof HTMLDialogElement) {
       e.preventDefault();
       if (dlg.open) dlg.close();
-      else {
-        dlg.showModal();
-        document.getElementById('cmdk-input')?.focus();
-      }
+      else openDialog(dlg, document.activeElement);
     }
     return;
   }
@@ -1020,6 +1335,38 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// Partial queue refresh (preserves scroll position and j/k row focus)
+async function refreshQueueInPlace() {
+  try {
+    const res = await fetch(location.href, { headers: { 'X-Requested-With': 'fetch' } });
+    if (!res.ok) return;
+    const htmlText = await res.text();
+    const doc = new DOMParser().parseFromString(htmlText, 'text/html');
+    const curTbody = document.querySelector('.queue-table tbody');
+    const nextTbody = doc.querySelector('.queue-table tbody');
+    if (!curTbody || !nextTbody) {
+      location.reload();
+      return;
+    }
+    curTbody.replaceWith(nextTbody);
+    const curCards = document.querySelector('.mobile-cards');
+    const nextCards = doc.querySelector('.mobile-cards');
+    if (curCards && nextCards) curCards.replaceWith(nextCards);
+    const curTotal = document.querySelector('.toolbar-meta strong');
+    const nextTotal = doc.querySelector('.toolbar-meta strong');
+    if (curTotal && nextTotal) curTotal.textContent = nextTotal.textContent;
+    const curNav = document.querySelector('.sidebar-nav');
+    const nextNav = doc.querySelector('.sidebar-nav');
+    if (curNav && nextNav) curNav.replaceWith(nextNav);
+    const rows = getQueueRows();
+    if (focusedIdx >= 0 && rows.length) {
+      focusedIdx = Math.min(focusedIdx, rows.length - 1);
+      rows[focusedIdx]?.classList.add('is-focused');
+    }
+    tickLiveSla();
+  } catch { /* ignore transient network error */ }
+}
+
 // Auto-refresh queue every 30s if idle (no selection, no open modal, no open popover, no focused input)
 if (location.pathname === '/queue') {
   setInterval(() => {
@@ -1027,7 +1374,7 @@ if (location.pathname === '/queue') {
     const hasDialog = document.querySelector('dialog[open]');
     const hasPopover = document.querySelector('details.popover[open]');
     const typing = document.activeElement?.matches('input, textarea, select');
-    if (!hasSelection && !hasDialog && !hasPopover && !typing) location.reload();
+    if (!hasSelection && !hasDialog && !hasPopover && !typing) refreshQueueInPlace();
   }, 30_000);
 }
 
@@ -1092,25 +1439,41 @@ function renderTickOutput(container, d) {
 // Live SLA countdown & progress ticker (Asia/Jakarta UTC+7, Mon-Fri 08:00-12:00 & 13:00-17:00)
 const HOLIDAYS = new Set((document.body?.dataset.holidays || '').split(',').filter(Boolean));
 const JKT_OFFSET_MS = 7 * 60 * 60_000;
+const DAY_MS = 86_400_000;
 
-function isWorkMinute(utcMs) {
-  const jkt = new Date(utcMs + JKT_OFFSET_MS);
-  const dow = jkt.getUTCDay();
+function isWorkDayJkt(dayIdx) {
+  const dow = (dayIdx + 4) % 7; // 1970-01-01 was Thursday (4)
   if (dow === 0 || dow === 6) return false;
-  if (HOLIDAYS.has(jkt.toISOString().slice(0, 10))) return false;
-  const m = jkt.getUTCHours() * 60 + jkt.getUTCMinutes();
-  return (m >= 480 && m < 720) || (m >= 780 && m < 1020);
+  if (!HOLIDAYS.size) return true;
+  const iso = new Date(dayIdx * DAY_MS).toISOString().slice(0, 10);
+  return !HOLIDAYS.has(iso);
+}
+
+function overlapMinutes(aStart, aEnd, bStart, bEnd) {
+  const s = Math.max(aStart, bStart);
+  const e = Math.min(aEnd, bEnd);
+  return e > s ? (e - s) / 60_000 : 0;
 }
 
 function elapsedSlaMinutes(fromMs, toMs, calKind) {
   if (toMs <= fromMs) return 0;
   if (calKind !== 'business_hours') return (toMs - fromMs) / 60_000;
+  const startJkt = fromMs + JKT_OFFSET_MS;
+  const endJkt = toMs + JKT_OFFSET_MS;
+  const startDay = Math.floor(startJkt / DAY_MS);
+  const endDay = Math.floor((endJkt - 1) / DAY_MS);
   let mins = 0;
-  let cur = fromMs;
-  while (cur < toMs) {
-    const next = Math.min(toMs, (Math.floor(cur / 60_000) + 1) * 60_000);
-    if (isWorkMinute(cur)) mins += (next - cur) / 60_000;
-    cur = next;
+  for (let d = startDay; d <= endDay; d++) {
+    if (!isWorkDayJkt(d)) continue;
+    if (d > startDay && d < endDay) {
+      mins += 480;
+      continue;
+    }
+    const dayBase = d * DAY_MS;
+    const segStart = Math.max(startJkt, dayBase);
+    const segEnd = Math.min(endJkt, dayBase + DAY_MS);
+    mins += overlapMinutes(segStart, segEnd, dayBase + 480 * 60_000, dayBase + 720 * 60_000);
+    mins += overlapMinutes(segStart, segEnd, dayBase + 780 * 60_000, dayBase + 1020 * 60_000);
   }
   return mins;
 }
@@ -1136,6 +1499,7 @@ function tickLiveSla() {
   const nodes = document.querySelectorAll('[data-sla-live]');
   if (!nodes.length) return;
   const nowMs = Date.now();
+  const updates = [];
   for (const el of nodes) {
     const renderedAt = Number(el.dataset.renderedAt || 0);
     const baseRem = Number(el.dataset.remaining || 0);
@@ -1148,25 +1512,36 @@ function tickLiveSla() {
     const pct = Math.max(0, ((target - rem) / target) * 100);
     const breached = rem <= 0;
     const atRisk = !breached && pct >= 75;
+    updates.push({
+      el,
+      kind: el.dataset.slaLive,
+      calKind,
+      rem,
+      pct,
+      breached,
+      atRisk,
+      txtEl: el.dataset.slaLive === 'badge' ? el.querySelector('[data-sla-text]') : null,
+      fill: el.dataset.slaLive === 'bar' ? el.querySelector('.sla-bar-fill') : null,
+    });
+  }
 
-    if (el.dataset.slaLive === 'badge') {
-      const txtEl = el.querySelector('[data-sla-text]');
-      if (txtEl) {
-        txtEl.textContent = breached
-          ? (Math.abs(rem) >= 1 ? `Lewat ${formatSlaRem(Math.abs(rem), calKind)}` : 'Terlewati')
-          : formatSlaRem(rem, calKind);
+  for (const u of updates) {
+    if (u.kind === 'badge') {
+      if (u.txtEl) {
+        u.txtEl.textContent = u.breached
+          ? (Math.abs(u.rem) >= 1 ? `Lewat ${formatSlaRem(Math.abs(u.rem), u.calKind)}` : 'Terlewati')
+          : formatSlaRem(u.rem, u.calKind);
       }
-      el.classList.remove('sla-normal', 'sla-risk', 'sla-breach');
-      el.classList.add(breached ? 'sla-breach' : atRisk ? 'sla-risk' : 'sla-normal');
-    } else if (el.dataset.slaLive === 'bar') {
-      const clamped = Math.min(100, Math.max(0, pct));
-      el.setAttribute('aria-valuenow', String(Math.round(pct)));
-      el.title = `${Math.round(pct)}% waktu SLA terpakai`;
-      const fill = el.querySelector('.sla-bar-fill');
-      if (fill) {
-        fill.style.width = `${clamped}%`;
-        fill.classList.remove('is-ok', 'is-risk', 'is-breach');
-        fill.classList.add(breached ? 'is-breach' : atRisk ? 'is-risk' : 'is-ok');
+      u.el.classList.remove('sla-normal', 'sla-risk', 'sla-breach');
+      u.el.classList.add(u.breached ? 'sla-breach' : u.atRisk ? 'sla-risk' : 'sla-normal');
+    } else if (u.kind === 'bar') {
+      const clamped = Math.min(100, Math.max(0, u.pct));
+      u.el.setAttribute('aria-valuenow', String(Math.round(u.pct)));
+      u.el.title = `${Math.round(u.pct)}% waktu SLA terpakai`;
+      if (u.fill) {
+        u.fill.style.width = `${clamped}%`;
+        u.fill.classList.remove('is-ok', 'is-risk', 'is-breach');
+        u.fill.classList.add(u.breached ? 'is-breach' : u.atRisk ? 'is-risk' : 'is-ok');
       }
     }
   }
@@ -1180,11 +1555,12 @@ if (document.querySelector('[data-sla-live]')) {
   });
 }
 
-// Initialise the new IT request form (preselected service/type from the URL).
+// Initialise the new IT request form (preselected service/type from URL + draft restore).
 {
   const rf = document.getElementById('new-ticket-form');
   if (rf instanceof HTMLFormElement && rf.querySelector('input[name="catalogItemId"]')) {
     syncRequestForm(rf);
+    restoreRequestDraft(rf);
   }
 }
 
@@ -1244,14 +1620,14 @@ document.addEventListener('submit', async (e) => {
     calendarId: row.querySelector('[data-sla-cal]').value,
   }));
   const btn = form.querySelector('[type="submit"]');
-  if (btn) btn.disabled = true;
+  setSubmitBusy(btn, true);
   try {
     await apiFetch(`/api/admin/sla-policies/${encodeURIComponent(form.dataset.policyId)}/targets`, 'PATCH', { targets });
     saveToastForReload(form.dataset.successMsg || 'Berhasil disimpan');
     location.reload();
   } catch (err) {
     setFormError(form, err.message);
-    if (btn) btn.disabled = false;
+    setSubmitBusy(btn, false);
   }
 });
 
@@ -1276,13 +1652,7 @@ document.addEventListener('click', async (e) => {
 
   const del = t.closest('[data-holiday-delete]');
   if (del) {
-    // Konfirmasi dua langkah: klik pertama meminta konfirmasi, kedua menghapus.
-    if (del.dataset.armed !== '1') {
-      del.dataset.armed = '1';
-      del.textContent = 'Yakin hapus?';
-      setTimeout(() => { del.dataset.armed = ''; del.textContent = 'Hapus'; }, 4000);
-      return;
-    }
+    if (!(await confirmModal('Hapus hari libur ini dari kalender SLA?', del))) return;
     del.disabled = true;
     try {
       await apiFetch(`/api/admin/holidays/${encodeURIComponent(del.dataset.holidayDelete)}`, 'DELETE');
@@ -1318,5 +1688,126 @@ document.addEventListener('click', async (e) => {
     }
   } catch (err) {
     setFormError(box, err.message);
+  }
+});
+
+// Interactive Dashboard Charts: hover (mouse), tap (mobile touch), and keyboard focus tooltips
+function hideChartTip(stage) {
+  if (!stage) return;
+  const tip = stage.querySelector('[data-chart-tooltip]');
+  if (tip) tip.hidden = true;
+  stage.querySelectorAll('.chart-hit.is-active, .chart-group.is-active').forEach((el) => {
+    el.classList.remove('is-active');
+  });
+}
+
+function showChartTip(hit) {
+  const stage = hit.closest('[data-chart-stage]');
+  const tip = stage?.querySelector('[data-chart-tooltip]');
+  if (!stage || !tip) return;
+  stage.querySelectorAll('.chart-hit.is-active, .chart-group.is-active').forEach((el) => {
+    el.classList.remove('is-active');
+  });
+  hit.classList.add('is-active');
+  hit.closest('.chart-group')?.classList.add('is-active');
+
+  const title = hit.getAttribute('data-chart-tip-title') || '';
+  const rawRows = hit.getAttribute('data-chart-tip-rows') || '';
+  tip.replaceChildren();
+  if (title) {
+    const h = document.createElement('div');
+    h.className = 'chart-tip-title';
+    h.textContent = title;
+    tip.appendChild(h);
+  }
+  const list = document.createElement('div');
+  list.className = 'chart-tip-rows';
+  for (const part of rawRows.split(';;').filter(Boolean)) {
+    const [label, val, tone] = part.split('|');
+    const row = document.createElement('div');
+    row.className = 'chart-tip-row';
+    const left = document.createElement('span');
+    left.className = 'chart-tip-label';
+    if (tone) {
+      const dot = document.createElement('span');
+      dot.className = `chart-tip-dot tone-${tone}`;
+      left.appendChild(dot);
+    }
+    const lbl = document.createElement('span');
+    lbl.textContent = label || '';
+    left.appendChild(lbl);
+    const right = document.createElement('span');
+    right.className = 'chart-tip-val';
+    right.textContent = val || '';
+    row.append(left, right);
+    list.appendChild(row);
+  }
+  tip.appendChild(list);
+  tip.hidden = false;
+
+  const announcer = document.getElementById('sr-announcer');
+  if (announcer) {
+    const summary = Array.from(list.querySelectorAll('.chart-tip-row')).map((r) => r.textContent).join(', ');
+    announcer.textContent = `${title}: ${summary}`.trim();
+  }
+
+  const stageRect = stage.getBoundingClientRect();
+  const hitRect = hit.getBoundingClientRect();
+  const tipRect = tip.getBoundingClientRect();
+  let leftPx = hitRect.left - stageRect.left + hitRect.width / 2 - tipRect.width / 2;
+  leftPx = Math.max(8, Math.min(stageRect.width - tipRect.width - 8, leftPx));
+  let topPx = hitRect.top - stageRect.top - tipRect.height - 8;
+  if (topPx < 4) {
+    topPx = Math.min(stageRect.height - tipRect.height - 8, hitRect.top - stageRect.top + Math.min(hitRect.height * 0.45, 36));
+  }
+  tip.style.left = `${Math.round(leftPx)}px`;
+  tip.style.top = `${Math.round(Math.max(4, topPx))}px`;
+}
+
+let lastChartPointer = 'mouse';
+document.addEventListener('pointerdown', (e) => {
+  if (e.pointerType) lastChartPointer = e.pointerType;
+});
+
+document.addEventListener('pointerover', (e) => {
+  if (e.pointerType === 'touch') return;
+  const hit = e.target instanceof Element ? e.target.closest('.chart-hit') : null;
+  if (hit) showChartTip(hit);
+});
+
+document.addEventListener('pointerout', (e) => {
+  if (e.pointerType === 'touch') return;
+  const hit = e.target instanceof Element ? e.target.closest('.chart-hit') : null;
+  if (!hit) return;
+  const stage = hit.closest('[data-chart-stage]');
+  const related = e.relatedTarget instanceof Element ? e.relatedTarget : null;
+  if (stage && (!related || !stage.contains(related))) hideChartTip(stage);
+});
+
+document.addEventListener('click', (e) => {
+  const hit = e.target instanceof Element ? e.target.closest('.chart-hit') : null;
+  if (hit) {
+    const stage = hit.closest('[data-chart-stage]');
+    const wasActive = hit.classList.contains('is-active');
+    document.querySelectorAll('[data-chart-stage]').forEach((s) => {
+      if (s !== stage) hideChartTip(s);
+    });
+    if (wasActive && lastChartPointer === 'touch') hideChartTip(stage);
+    else showChartTip(hit);
+    return;
+  }
+  if (!(e.target instanceof Element && e.target.closest('[data-chart-stage]'))) {
+    document.querySelectorAll('[data-chart-stage]').forEach((s) => hideChartTip(s));
+  }
+});
+
+document.addEventListener('focusin', (e) => {
+  const hit = e.target instanceof Element ? e.target.closest('.chart-hit') : null;
+  if (hit) showChartTip(hit);
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('[data-chart-stage]').forEach((s) => hideChartTip(s));
   }
 });

@@ -55,9 +55,9 @@ function chartToggleButton(pair: string): HtmlContent {
  * Grafik SVG dual-line Volume Tiket 30 hari + fallback tabel HTML.
  */
 export function volumeChart(volume: VolumePoint[], rangeDays: number): HtmlContent {
-  const W = 720;
-  const H = 220;
-  const pad = { top: 18, right: 20, bottom: 32, left: 36 };
+  const W = 820;
+  const H = 340;
+  const pad = { top: 22, right: 24, bottom: 38, left: 42 };
   const plotW = W - pad.left - pad.right;
   const plotH = H - pad.top - pad.bottom;
 
@@ -67,6 +67,7 @@ export function volumeChart(volume: VolumePoint[], rangeDays: number): HtmlConte
   const xAt = (i: number): number =>
     n <= 1 ? pad.left + plotW / 2 : pad.left + (i / (n - 1)) * plotW;
   const yAt = (val: number): number => pad.top + plotH - (val / maxY) * plotH;
+  const stepW = n <= 1 ? plotW : plotW / (n - 1);
 
   const createdPath = smoothPath(
     volume.map((v, i) => ({ x: xAt(i), y: yAt(v.created) })),
@@ -84,20 +85,21 @@ export function volumeChart(volume: VolumePoint[], rangeDays: number): HtmlConte
     <div class="card-header row-between">
       <div>
         <h2 class="card-title">Volume Tiket (Dibuat vs Diselesaikan)</h2>
-        <p class="card-desc">Tren beban tiket harian dalam ${rangeDays} hari terakhir</p>
+        <p class="card-desc">Tren beban tiket harian dalam ${rangeDays} hari terakhir · ketuk atau arahkan kursor untuk detail</p>
       </div>
       ${chartToggleButton('vol')}
     </div>
 
     <div class="card-body">
-      <div data-view-chart="vol">
-        <svg viewBox="0 0 ${W} ${H}" class="chart-svg" role="img" aria-label="Grafik Volume Tiket">
+      <div class="chart-stage" data-view-chart="vol" data-chart-stage>
+        <div class="chart-scroll">
+        <svg viewBox="0 0 ${W} ${H}" class="chart-svg chart-svg-lg" role="img" aria-label="Grafik Volume Tiket">
           ${[0, 1, 2, 3, 4].map((tick) => {
             const val = Math.round((maxY * tick) / 4);
             const y = yAt(val).toFixed(1);
             return html`<g>
               <line x1="${pad.left}" y1="${y}" x2="${W - pad.right}" y2="${y}" class="chart-grid" />
-              <text x="${pad.left - 8}" y="${y}" text-anchor="end" dominant-baseline="middle" class="chart-axis">${val}</text>
+              <text x="${pad.left - 10}" y="${y}" text-anchor="end" dominant-baseline="middle" class="chart-axis">${val}</text>
             </g>`;
           })}
 
@@ -105,7 +107,7 @@ export function volumeChart(volume: VolumePoint[], rangeDays: number): HtmlConte
             i % labelEvery === 0 || i === n - 1
               ? html`<text
                   x="${xAt(i).toFixed(1)}"
-                  y="${H - 10}"
+                  y="${H - 12}"
                   text-anchor="middle"
                   class="chart-axis"
                 >${v.date.slice(5)}</text>`
@@ -114,28 +116,45 @@ export function volumeChart(volume: VolumePoint[], rangeDays: number): HtmlConte
 
           ${n > 0
             ? html`
-                <path d="${createdPath}" fill="none" stroke="#0f766e" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" />
-                <path d="${resolvedPath}" fill="none" stroke="#16a34a" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" />
+                <path d="${createdPath}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
+                <path d="${resolvedPath}" fill="none" stroke="var(--sla-ok)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
                 ${volume.map((v, i) => {
-                  const cx = xAt(i).toFixed(1);
+                  const cxNum = xAt(i);
+                  const cx = cxNum.toFixed(1);
                   const cyC = yAt(v.created).toFixed(1);
                   const cyR = yAt(v.resolved).toFixed(1);
-                  return html`<g>
-                    <circle cx="${cx}" cy="${cyC}" r="3.2" fill="#0f766e">
-                      <title>${v.date}: Masuk ${v.created}, Selesai ${v.resolved}</title>
-                    </circle>
-                    <circle cx="${cx}" cy="${cyR}" r="3.2" fill="#16a34a">
-                      <title>${v.date}: Selesai ${v.resolved}, Masuk ${v.created}</title>
-                    </circle>
+                  const hitW = Math.max(12, stepW);
+                  const hitX = Math.max(pad.left, Math.min(W - pad.right - hitW, cxNum - hitW / 2));
+                  const rows = `Tiket Baru|${v.created}|accent;;Diselesaikan|${v.resolved}|ok`;
+                  return html`<g class="chart-group">
+                    <line x1="${cx}" y1="${pad.top}" x2="${cx}" y2="${pad.top + plotH}" class="chart-guide" />
+                    <circle cx="${cx}" cy="${cyC}" r="4.2" fill="var(--accent)" class="chart-dot" />
+                    <circle cx="${cx}" cy="${cyR}" r="4.2" fill="var(--sla-ok)" class="chart-dot" />
+                    <rect
+                      x="${hitX.toFixed(1)}"
+                      y="${pad.top}"
+                      width="${hitW.toFixed(1)}"
+                      height="${plotH}"
+                      rx="4"
+                      class="chart-hit"
+                      tabindex="0"
+                      role="button"
+                      aria-label="${v.date}: Tiket Baru ${v.created}, Diselesaikan ${v.resolved}"
+                      data-chart-tip-title="${v.date}"
+                      data-chart-tip-rows="${rows}"
+                    />
                   </g>`;
                 })}
               `
-            : null}
+            : html`<text x="${W / 2}" y="${H / 2}" text-anchor="middle" class="chart-axis">Belum ada data volume pada rentang ini.</text>`}
         </svg>
+        </div>
+
+        <div class="chart-tooltip" data-chart-tooltip hidden></div>
 
         <div class="chart-legend">
-          <span class="legend-item"><i class="legend-dot" style="background:#0f766e"></i> Tiket Baru</span>
-          <span class="legend-item"><i class="legend-dot" style="background:#16a34a"></i> Diselesaikan</span>
+          <span class="legend-item"><i class="legend-dot legend-dot-accent" aria-hidden="true"></i> Tiket Baru</span>
+          <span class="legend-item"><i class="legend-dot legend-dot-ok" aria-hidden="true"></i> Diselesaikan</span>
         </div>
       </div>
 
@@ -144,19 +163,21 @@ export function volumeChart(volume: VolumePoint[], rangeDays: number): HtmlConte
           <table class="table">
             <thead>
               <tr>
-                <th>Tanggal</th>
-                <th class="text-right">Tiket Masuk</th>
-                <th class="text-right">Tiket Selesai</th>
+                <th scope="col">Tanggal</th>
+                <th scope="col" class="text-right">Tiket Masuk</th>
+                <th scope="col" class="text-right">Tiket Selesai</th>
               </tr>
             </thead>
             <tbody>
-              ${volume.map(
-                (v) => html`<tr>
-                  <td class="mono">${v.date}</td>
-                  <td class="text-right mono text-accent">${v.created}</td>
-                  <td class="text-right mono text-sla-ok">${v.resolved}</td>
-                </tr>`,
-              )}
+              ${volume.length === 0
+                ? html`<tr><td colspan="3" class="text-center text-muted">Belum ada data volume.</td></tr>`
+                : volume.map(
+                    (v) => html`<tr>
+                      <td class="mono">${v.date}</td>
+                      <td class="text-right mono tabular text-accent">${v.created}</td>
+                      <td class="text-right mono tabular text-sla-ok">${v.resolved}</td>
+                    </tr>`,
+                  )}
             </tbody>
           </table>
         </div>
@@ -169,9 +190,9 @@ export function volumeChart(volume: VolumePoint[], rangeDays: number): HtmlConte
  * Grafik horizontal bar SVG SLA Compliance per Prioritas (P1–P4) + fallback tabel.
  */
 export function slaPriorityChart(slaByPriority: PrioritySlaPoint[]): HtmlContent {
-  const W = 480;
-  const H = 180;
-  const pad = { top: 14, right: 56, bottom: 26, left: 42 };
+  const W = 560;
+  const H = 280;
+  const pad = { top: 18, right: 64, bottom: 34, left: 48 };
   const plotW = W - pad.left - pad.right;
   const rowH = (H - pad.top - pad.bottom) / Math.max(1, slaByPriority.length);
 
@@ -185,52 +206,70 @@ export function slaPriorityChart(slaByPriority: PrioritySlaPoint[]): HtmlContent
     </div>
 
     <div class="card-body">
-      <div data-view-chart="sla">
+      <div class="chart-stage" data-view-chart="sla" data-chart-stage>
+        <div class="chart-scroll chart-scroll-md">
         <svg viewBox="0 0 ${W} ${H}" class="chart-svg" role="img" aria-label="SLA Compliance per Prioritas">
           ${[0, 25, 50, 75, 100].map((pct) => {
             const x = (pad.left + (pct / 100) * plotW).toFixed(1);
             return html`<g>
               <line x1="${x}" y1="${pad.top}" x2="${x}" y2="${H - pad.bottom}" class="chart-grid" />
-              <text x="${x}" y="${H - 8}" text-anchor="middle" class="chart-axis">${pct}%</text>
+              <text x="${x}" y="${H - 10}" text-anchor="middle" class="chart-axis">${pct}%</text>
             </g>`;
           })}
 
           ${slaByPriority.map((item, i) => {
-            const y = pad.top + i * rowH + 6;
-            const barH = Math.max(14, rowH - 12);
+            const y = pad.top + i * rowH + 8;
+            const barH = Math.max(22, rowH - 16);
             const barW = Math.max(0, (item.metPercent / 100) * plotW);
             const cy = (y + barH / 2).toFixed(1);
-            return html`<g>
-              <text x="${pad.left - 8}" y="${cy}" text-anchor="end" dominant-baseline="middle" class="chart-axis-bold">${item.priority}</text>
-              <rect x="${pad.left}" y="${y}" width="${plotW}" height="${barH}" rx="4" class="chart-track" />
-              <rect x="${pad.left}" y="${y}" width="${barW.toFixed(1)}" height="${barH}" rx="4" fill="#0f766e">
-                <title>${item.priority}: ${item.metPercent}% (${item.total} tiket)</title>
-              </rect>
-              <text x="${(pad.left + barW + 6).toFixed(1)}" y="${cy}" dominant-baseline="middle" class="chart-val">${item.metPercent}%</text>
+            const rows = `Kepatuhan SLA|${item.metPercent}%|accent;;Total Tiket|${item.total} tiket|muted`;
+            return html`<g class="chart-group">
+              <text x="${pad.left - 10}" y="${cy}" text-anchor="end" dominant-baseline="middle" class="chart-axis-bold">${item.priority}</text>
+              <rect x="${pad.left}" y="${y}" width="${plotW}" height="${barH}" rx="6" class="chart-track" />
+              <rect x="${pad.left}" y="${y}" width="${barW.toFixed(1)}" height="${barH}" rx="6" fill="var(--accent)" />
+              <text x="${(pad.left + barW + 8).toFixed(1)}" y="${cy}" dominant-baseline="middle" class="chart-val">${item.metPercent}%</text>
+              <rect
+                x="${pad.left}"
+                y="${(y - 4).toFixed(1)}"
+                width="${plotW + 48}"
+                height="${(barH + 8).toFixed(1)}"
+                rx="6"
+                class="chart-hit"
+                tabindex="0"
+                role="button"
+                aria-label="Prioritas ${item.priority}: Kepatuhan SLA ${item.metPercent}%, total ${item.total} tiket"
+                data-chart-tip-title="Prioritas ${item.priority}"
+                data-chart-tip-rows="${rows}"
+              />
             </g>`;
           })}
         </svg>
+        </div>
+
+        <div class="chart-tooltip" data-chart-tooltip hidden></div>
       </div>
 
       <div data-view-table="sla" hidden>
+        <div class="table-scroll">
         <table class="table">
           <thead>
             <tr>
-              <th>Prioritas</th>
-              <th class="text-right">Total Tiket</th>
-              <th class="text-right">Kepatuhan SLA</th>
+              <th scope="col">Prioritas</th>
+              <th scope="col" class="text-right">Total Tiket</th>
+              <th scope="col" class="text-right">Kepatuhan SLA</th>
             </tr>
           </thead>
           <tbody>
             ${slaByPriority.map(
               (item) => html`<tr>
                 <td class="mono font-bold">${item.priority}</td>
-                <td class="text-right mono">${item.total}</td>
-                <td class="text-right mono text-accent font-bold">${item.metPercent}%</td>
+                <td class="text-right mono tabular">${item.total}</td>
+                <td class="text-right mono tabular text-accent font-bold">${item.metPercent}%</td>
               </tr>`,
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   </div>`;
@@ -240,22 +279,22 @@ export function slaPriorityChart(slaByPriority: PrioritySlaPoint[]): HtmlContent
  * Grafik stacked bar SVG Backlog Aging (P1–P4 per bucket usia kerja) + fallback tabel.
  */
 export function agingChart(aging: AgingBucketPoint[]): HtmlContent {
-  const W = 480;
-  const H = 190;
-  const pad = { top: 14, right: 16, bottom: 30, left: 36 };
+  const W = 560;
+  const H = 290;
+  const pad = { top: 20, right: 20, bottom: 38, left: 42 };
   const plotW = W - pad.left - pad.right;
   const plotH = H - pad.top - pad.bottom;
 
   const rawMax = aging.reduce((m, b) => Math.max(m, b.P1 + b.P2 + b.P3 + b.P4), 0);
   const maxY = niceMax(rawMax);
   const colW = plotW / Math.max(1, aging.length);
-  const barW = Math.min(48, colW * 0.56);
+  const barW = Math.min(64, colW * 0.58);
 
-  const series: ReadonlyArray<{ key: 'P1' | 'P2' | 'P3' | 'P4'; label: string; color: string }> = [
-    { key: 'P1', label: 'P1 Critical', color: '#dc2626' },
-    { key: 'P2', label: 'P2 High', color: '#ea580c' },
-    { key: 'P3', label: 'P3 Medium', color: '#ca8a04' },
-    { key: 'P4', label: 'P4 Low', color: '#64748b' },
+  const series: ReadonlyArray<{ key: 'P1' | 'P2' | 'P3' | 'P4'; label: string; color: string; dotClass: string }> = [
+    { key: 'P1', label: 'P1 Critical', color: 'var(--p1)', dotClass: 'legend-dot-p1' },
+    { key: 'P2', label: 'P2 High', color: 'var(--p2)', dotClass: 'legend-dot-p2' },
+    { key: 'P3', label: 'P3 Medium', color: 'var(--p3)', dotClass: 'legend-dot-p3' },
+    { key: 'P4', label: 'P4 Low', color: 'var(--p4)', dotClass: 'legend-dot-p4' },
   ];
 
   return html`<div class="card">
@@ -268,22 +307,27 @@ export function agingChart(aging: AgingBucketPoint[]): HtmlContent {
     </div>
 
     <div class="card-body">
-      <div data-view-chart="aging">
+      <div class="chart-stage" data-view-chart="aging" data-chart-stage>
+        <div class="chart-scroll chart-scroll-md">
         <svg viewBox="0 0 ${W} ${H}" class="chart-svg" role="img" aria-label="Distribusi Umur Backlog Aktif">
           ${[0, 1, 2, 3, 4].map((tick) => {
             const val = Math.round((maxY * tick) / 4);
             const y = (pad.top + plotH - (val / maxY) * plotH).toFixed(1);
             return html`<g>
               <line x1="${pad.left}" y1="${y}" x2="${W - pad.right}" y2="${y}" class="chart-grid" />
-              <text x="${pad.left - 8}" y="${y}" text-anchor="end" dominant-baseline="middle" class="chart-axis">${val}</text>
+              <text x="${pad.left - 10}" y="${y}" text-anchor="end" dominant-baseline="middle" class="chart-axis">${val}</text>
             </g>`;
           })}
 
           ${aging.map((b, i) => {
             const cx = pad.left + i * colW + colW / 2;
             const x = (cx - barW / 2).toFixed(1);
+            const total = b.P1 + b.P2 + b.P3 + b.P4;
+            const hitX = (pad.left + i * colW + 4).toFixed(1);
+            const hitW = Math.max(28, colW - 8).toFixed(1);
+            const rows = `P1 Critical|${b.P1}|p1;;P2 High|${b.P2}|p2;;P3 Medium|${b.P3}|p3;;P4 Low|${b.P4}|p4;;Total|${total}|accent`;
             let curBottom = pad.top + plotH;
-            return html`<g>
+            return html`<g class="chart-group">
               ${series.map((s) => {
                 const count = b[s.key];
                 if (count <= 0) return null;
@@ -295,45 +339,64 @@ export function agingChart(aging: AgingBucketPoint[]): HtmlContent {
                   width="${barW.toFixed(1)}"
                   height="${h.toFixed(1)}"
                   fill="${s.color}"
-                >
-                  <title>${b.label} (${s.label}): ${count}</title>
-                </rect>`;
+                />`;
               })}
-              <text x="${cx.toFixed(1)}" y="${H - 10}" text-anchor="middle" class="chart-axis">${b.label}</text>
+              ${total > 0
+                ? html`<text x="${cx.toFixed(1)}" y="${Math.max(pad.top + 10, curBottom - 6).toFixed(1)}" text-anchor="middle" class="chart-val">${total}</text>`
+                : null}
+              <text x="${cx.toFixed(1)}" y="${H - 12}" text-anchor="middle" class="chart-axis">${b.label}</text>
+              <rect
+                x="${hitX}"
+                y="${pad.top}"
+                width="${hitW}"
+                height="${plotH}"
+                rx="6"
+                class="chart-hit"
+                tabindex="0"
+                role="button"
+                aria-label="Usia ${b.label}: P1 ${b.P1}, P2 ${b.P2}, P3 ${b.P3}, P4 ${b.P4}, total ${total}"
+                data-chart-tip-title="Usia: ${b.label}"
+                data-chart-tip-rows="${rows}"
+              />
             </g>`;
           })}
         </svg>
+        </div>
+
+        <div class="chart-tooltip" data-chart-tooltip hidden></div>
 
         <div class="chart-legend">
           ${series.map(
-            (s) => html`<span class="legend-item"><i class="legend-dot" style="background:${s.color}"></i> ${s.label}</span>`,
+            (s) => html`<span class="legend-item"><i class="legend-dot ${s.dotClass}" aria-hidden="true"></i> ${s.label}</span>`,
           )}
         </div>
       </div>
 
       <div data-view-table="aging" hidden>
+        <div class="table-scroll">
         <table class="table">
           <thead>
             <tr>
-              <th>Rentang Umur</th>
-              <th class="text-right">P1</th>
-              <th class="text-right">P2</th>
-              <th class="text-right">P3</th>
-              <th class="text-right">P4</th>
+              <th scope="col">Rentang Umur</th>
+              <th scope="col" class="text-right">P1</th>
+              <th scope="col" class="text-right">P2</th>
+              <th scope="col" class="text-right">P3</th>
+              <th scope="col" class="text-right">P4</th>
             </tr>
           </thead>
           <tbody>
             ${aging.map(
               (b) => html`<tr>
                 <td>${b.label}</td>
-                <td class="text-right mono text-p1 font-bold">${b.P1}</td>
-                <td class="text-right mono text-p2 font-bold">${b.P2}</td>
-                <td class="text-right mono text-p3 font-bold">${b.P3}</td>
-                <td class="text-right mono text-p4 font-bold">${b.P4}</td>
+                <td class="text-right mono tabular text-p1 font-bold">${b.P1}</td>
+                <td class="text-right mono tabular text-p2 font-bold">${b.P2}</td>
+                <td class="text-right mono tabular text-p3 font-bold">${b.P3}</td>
+                <td class="text-right mono tabular text-p4 font-bold">${b.P4}</td>
               </tr>`,
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   </div>`;
@@ -346,14 +409,16 @@ export function topCategoriesCard(categories: CategoryMetric[]): HtmlContent {
       <p class="card-desc">Kategori dengan volume insiden/permohonan tertinggi</p>
     </div>
     <div class="card-body">
-      <div class="rank-list">
-        ${categories.map(
-          (c, i) => html`<a href="/queue?category=${c.id}" class="rank-row">
-            <span class="rank-name">${i + 1}. ${c.name}</span>
-            <span class="rank-count mono tabular">${c.count} tiket</span>
-          </a>`,
-        )}
-      </div>
+      ${categories.length === 0
+        ? html`<p class="text-muted text-xs">Belum ada kategori dengan tiket pada periode ini.</p>`
+        : html`<div class="rank-list">
+            ${categories.map(
+              (c, i) => html`<a href="/queue?category=${c.id}" class="rank-row">
+                <span class="rank-name">${i + 1}. ${c.name}</span>
+                <span class="rank-count mono tabular">${c.count} tiket</span>
+              </a>`,
+            )}
+          </div>`}
     </div>
   </div>`;
 }
@@ -365,44 +430,46 @@ export function agentPerformanceCard(agents: AgentPerformanceRow[]): HtmlContent
       <p class="card-desc">Beban tiket aktif, resolusi, rata-rata MTTR, kepatuhan SLA, dan kepuasan CSAT</p>
     </div>
     <div class="card-body">
-      <div class="table-scroll">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Nama Staff</th>
-              <th class="text-center">Tiket Aktif</th>
-              <th class="text-center">Diselesaikan</th>
-              <th class="text-center">MTTR</th>
-              <th class="text-center">SLA Met</th>
-              <th class="text-center">CSAT</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${agents.map((a) => {
-              const slaCls =
-                a.slaPercent >= 95
-                  ? 'text-sla-ok'
-                  : a.slaPercent >= 85
-                    ? 'text-sla-risk'
-                    : 'text-sla-breach';
-              return html`<tr>
-                <td class="font-bold">
-                  <a href="/queue?assignee=${a.id}" class="link-plain">${a.name}</a>
-                </td>
-                <td class="text-center mono text-accent font-bold">${a.activeCount}</td>
-                <td class="text-center mono">${a.resolvedCount}</td>
-                <td class="text-center mono text-muted">${a.mttrHours} jam</td>
-                <td class="text-center mono font-bold ${slaCls}">${a.slaPercent}%</td>
-                <td class="text-center mono">
-                  ${a.csatScore !== null
-                    ? html`<span class="text-amber font-bold">★ ${a.csatScore}</span>`
-                    : html`<span class="text-muted">—</span>`}
-                </td>
-              </tr>`;
-            })}
-          </tbody>
-        </table>
-      </div>
+      ${agents.length === 0
+        ? html`<p class="text-muted text-xs">Belum ada data kinerja staf pada periode ini.</p>`
+        : html`<div class="table-scroll">
+            <table class="table agent-perf-table">
+              <thead>
+                <tr>
+                  <th scope="col">Nama Staff</th>
+                  <th scope="col" class="text-center">Tiket Aktif</th>
+                  <th scope="col" class="text-center">Diselesaikan</th>
+                  <th scope="col" class="text-center">MTTR</th>
+                  <th scope="col" class="text-center">SLA Met</th>
+                  <th scope="col" class="text-center">CSAT</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${agents.map((a) => {
+                  const slaCls =
+                    a.slaPercent >= 95
+                      ? 'text-sla-ok'
+                      : a.slaPercent >= 85
+                        ? 'text-sla-risk'
+                        : 'text-sla-breach';
+                  return html`<tr>
+                    <td class="font-bold">
+                      <a href="/queue?assignee=${a.id}" class="link-plain">${a.name}</a>
+                    </td>
+                    <td class="text-center mono tabular text-accent font-bold">${a.activeCount}</td>
+                    <td class="text-center mono tabular">${a.resolvedCount}</td>
+                    <td class="text-center mono tabular text-muted">${a.mttrHours} jam</td>
+                    <td class="text-center mono tabular font-bold ${slaCls}">${a.slaPercent}%</td>
+                    <td class="text-center mono tabular">
+                      ${a.csatScore !== null
+                        ? html`<span class="text-amber font-bold"><span aria-hidden="true">★</span> ${a.csatScore}</span>`
+                        : html`<span class="text-muted">—</span>`}
+                    </td>
+                  </tr>`;
+                })}
+              </tbody>
+            </table>
+          </div>`}
     </div>
   </div>`;
 }

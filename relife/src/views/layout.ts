@@ -43,6 +43,18 @@ export function baseDoc(opts: {
     <a href="#main-content" class="skip-link">Lewati ke konten utama</a>
     ${opts.body}
     ${includeCmdk ? commandPaletteDialog(isAgent) : null}
+    <dialog id="dlg-confirm" class="modal" aria-labelledby="dlg-confirm-title" aria-describedby="dlg-confirm-msg">
+      <div class="modal-box">
+        <div class="modal-head">
+          <h3 id="dlg-confirm-title" class="modal-title">Konfirmasi Tindakan</h3>
+          <p id="dlg-confirm-msg" class="modal-desc"></p>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-secondary btn-sm" data-confirm-cancel>Batal</button>
+          <button type="button" class="btn btn-primary btn-sm" data-confirm-ok>Ya, Lanjutkan</button>
+        </div>
+      </div>
+    </dialog>
     <div id="sr-announcer" class="sr-only" aria-live="polite"></div>
     <div id="toast-root" class="toast-root" aria-live="polite"></div>
   </body>
@@ -57,13 +69,14 @@ function commandPaletteDialog(isAgent: boolean): HtmlContent {
         <input
           id="cmdk-input"
           type="search"
+          enterkeyhint="search"
           class="cmdk-input"
           placeholder="${isAgent
             ? 'Cari nomor (INC-000001), judul, atau requester...'
             : 'Cari tiket (INC-000001) atau judul...'}"
           autocomplete="off"
         />
-        <button type="button" class="btn btn-ghost btn-sm" data-close-dialog>Esc</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-close-dialog aria-label="Tutup pencarian">Tutup</button>
       </div>
       <div id="cmdk-results" class="cmdk-results">
         <p class="cmdk-hint">Ketik minimal 2 karakter untuk mencari tiket</p>
@@ -136,7 +149,7 @@ function topbarControls(opts: {
                 >
                   <div class="popover-item-row">
                     <span>${item.title}</span>
-                    ${unread ? html`<span class="unread-dot"></span>` : null}
+                    ${unread ? html`<span class="unread-dot" aria-hidden="true"></span>` : null}
                   </div>
                   <span class="popover-item-time">${formatRelative(item.createdAt, now)}</span>
                 </a>`;
@@ -159,7 +172,7 @@ function topbarControls(opts: {
       ${icon('moon', 'icon-sm icon-moon')}
     </button>
 
-    <span class="divider-v"></span>
+    <span class="divider-v" aria-hidden="true"></span>
 
     <details class="popover user-popover">
       <summary class="user-trigger" aria-label="Menu profil pengguna">
@@ -204,6 +217,7 @@ function cmdkTrigger(): HtmlContent {
     type="button"
     class="cmdk-trigger"
     data-open-dialog="dlg-cmdk"
+    aria-label="Cari tiket atau navigasi"
     title="Cari tiket atau navigasi (Ctrl+K)"
   >
     ${icon('search', 'icon-xs')}
@@ -301,8 +315,10 @@ export function agentLayout(opts: {
           <span class="badge badge-accent">ITSM</span>
         </a>
 
-      <details class="mobile-nav-details" open>
-        <summary class="mobile-nav-summary">Menu Navigasi</summary>
+      <details class="mobile-nav-details" data-mobile-nav>
+        <summary class="mobile-nav-summary">
+          ${icon('dashboard', 'icon-xs')} <span>Menu</span>
+        </summary>
         <div class="sidebar-group">
           <span class="sidebar-label">Queue Tiket</span>
           <nav class="sidebar-nav">
@@ -347,6 +363,9 @@ export function agentLayout(opts: {
                   <span class="row-gap-sm">${icon('settings', 'icon-sm')} <span>Pengaturan Admin</span></span>
                 </a>`
               : null}
+            <a href="/portal" class="sidebar-link sidebar-portal-mobile">
+              <span class="row-gap-sm">${icon('lifebuoy', 'icon-sm')} <span>Portal Requester</span></span>
+            </a>
           </nav>
         </div>
       </details>
